@@ -16,11 +16,14 @@ export default function TrailerModal({
   onDeleteMovie
 }) {
   const dialogRef = useRef(null);
-  const [copied, setCopied] = useState(false);
+  const scrollRef = useRef(null);
+  const [shareLabel, setShareLabel] = useState('Compartir');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     setConfirmDelete(false);
+    // Al pasar a otro tráiler (p. ej. uno relacionado) el reproductor vuelve a quedar a la vista
+    scrollRef.current?.scrollTo({ top: 0 });
   }, [movie?.id, isOpen]);
 
   useEffect(() => {
@@ -52,12 +55,17 @@ export default function TrailerModal({
         onClose();
       };
 
+      // Si el navegador cierra la ventana por su cuenta, el estado de React debe enterarse
+      const handleNativeClose = () => onClose();
+
       dialog.addEventListener('click', handleClickOutside);
       dialog.addEventListener('cancel', handleCancel);
+      dialog.addEventListener('close', handleNativeClose);
 
       return () => {
         dialog.removeEventListener('click', handleClickOutside);
         dialog.removeEventListener('cancel', handleCancel);
+        dialog.removeEventListener('close', handleNativeClose);
       };
     } else {
       if (dialog.open) {
@@ -74,11 +82,15 @@ export default function TrailerModal({
     .filter(m => m.id !== movie.id && (m.category === movie.category || (m.genres && movie.genres && m.genres.split(',')[0] === movie.genres.split(',')[0])))
     .slice(0, 6);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const url = movie.trailerUrl || window.location.href;
-    navigator.clipboard?.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareLabel('¡Copiado!');
+    } catch {
+      setShareLabel('No se pudo copiar');
+    }
+    setTimeout(() => setShareLabel('Compartir'), 2000);
   };
 
   return (
@@ -88,7 +100,7 @@ export default function TrailerModal({
       aria-labelledby="trailerModalTitle"
       className="m-auto p-0 max-w-4xl w-[94vw] md:w-[850px] bg-[#181818] text-white rounded-xl shadow-2xl overflow-hidden backdrop:bg-black/85 backdrop:backdrop-blur-md outline-none border border-white/10"
     >
-      <div className="relative flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar">
+      <div ref={scrollRef} className="relative flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-40 w-10 h-10 rounded-full bg-[#181818]/80 hover:bg-[#282828] text-white flex items-center justify-center border border-white/20 transition backdrop-blur-sm"
@@ -130,7 +142,7 @@ export default function TrailerModal({
                 title="Copiar enlace del tráiler"
               >
                 <Share2 size={16} />
-                <span>{copied ? '¡Copiado!' : 'Compartir'}</span>
+                <span>{shareLabel}</span>
               </button>
 
               <button
@@ -263,8 +275,17 @@ export default function TrailerModal({
                 {relatedMovies.map((rel) => (
                   <div
                     key={rel.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onSelectMovie(rel)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectMovie(rel);
+                      }
+                    }}
                     className="group bg-[#242424] rounded overflow-hidden cursor-pointer hover:bg-[#303030] transition border border-white/5 hover:border-white/20"
+                    aria-label={`Ver tráiler de ${rel.title}`}
                   >
                     <div className="relative aspect-video w-full overflow-hidden bg-zinc-900">
                       <TrailerImage

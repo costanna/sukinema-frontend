@@ -15,7 +15,7 @@ function StatCard({ icon, label, value, sub, color = 'text-white' }) {
   );
 }
 
-export default function StatsPanel({ movies = [], myListIds = new Set() }) {
+export default function StatsPanel({ movies = [], myListCount = 0 }) {
   const stats = useMemo(() => {
     if (movies.length === 0) return null;
 
@@ -31,6 +31,8 @@ export default function StatsPanel({ movies = [], myListIds = new Set() }) {
       const cat = m.category || 'Sin categoría';
       byCategory[cat] = (byCategory[cat] || 0) + 1;
     });
+    // El total cuenta todas las categorías; el gráfico solo muestra las 6 mayores
+    const categoryCount = Object.keys(byCategory).length;
     const categoriesSorted = Object.entries(byCategory)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
@@ -41,7 +43,7 @@ export default function StatsPanel({ movies = [], myListIds = new Set() }) {
       return db - da;
     }).slice(0, 3);
 
-    return { totalLikes, topByLikes, categoriesSorted, newestFirst };
+    return { totalLikes, topByLikes, categoryCount, categoriesSorted, newestFirst };
   }, [movies]);
 
   if (!stats) {
@@ -74,15 +76,15 @@ export default function StatsPanel({ movies = [], myListIds = new Set() }) {
         <StatCard
           icon={<Star size={14} />}
           label="Mi Lista"
-          value={myListIds.size}
+          value={myListCount}
           sub="tráilers guardados"
           color="text-yellow-400"
         />
         <StatCard
           icon={<TrendingUp size={14} />}
           label="Categorías"
-          value={stats.categoriesSorted.length}
-          sub="géneros disponibles"
+          value={stats.categoryCount}
+          sub="categorías disponibles"
           color="text-green-400"
         />
       </div>

@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 // Global toast event system
 const TOAST_EVENT = 'sukinema-toast';
+let nextToastId = 0;
 
 export function showToast(message, type = 'success', duration = 3000) {
   window.dispatchEvent(new CustomEvent(TOAST_EVENT, {
-    detail: { message, type, duration, id: Date.now() }
+    detail: { message, type, duration, id: ++nextToastId }
   }));
 }
 
@@ -41,6 +42,7 @@ function ToastItem({ toast, onRemove }) {
 
   return (
     <div
+      role="status"
       className={`flex items-center space-x-3 px-4 py-3 rounded-lg border shadow-xl text-sm text-gray-100 max-w-sm w-full transition-all duration-300 ${
         BG[toast.type] || BG.info
       } ${
@@ -54,6 +56,7 @@ function ToastItem({ toast, onRemove }) {
       <button
         onClick={() => { setLeaving(true); setTimeout(() => onRemove(toast.id), 300); }}
         className="text-gray-500 hover:text-gray-200 transition"
+        aria-label="Cerrar aviso"
       >
         <X size={15} />
       </button>
@@ -63,6 +66,7 @@ function ToastItem({ toast, onRemove }) {
 
 export default function ToastContainer() {
   const [toasts, setToasts] = useState([]);
+  const containerRef = useRef(null);
 
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -76,10 +80,39 @@ export default function ToastContainer() {
     return () => window.removeEventListener(TOAST_EVENT, handler);
   }, []);
 
+  // Las ventanas <dialog> se pintan en la "capa superior" del navegador, por encima de cualquier z-index.
+  // El contenedor es un popover para entrar en esa misma capa, y se vuelve a mostrar con cada aviso
+  // y cada vez que se abre una ventana, de modo que siempre quede el último (encima).
+  const lastToastId = toasts.length > 0 ? toasts[toasts.length - 1].id : null;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof container.showPopover !== 'function') return;
+
+    const raise = () => {
+      try {
+        if (container.matches(':popover-open')) container.hidePopover();
+        container.showPopover();
+      } catch (e) {
+        console.warn(e);
+      }
+    };
+    raise();
+
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some(m => m.target instanceof HTMLDialogElement && m.target.open)) raise();
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['open'], subtree: true });
+    return () => observer.disconnect();
+  }, [lastToastId]);
+
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-4 z-[100] flex flex-col-reverse space-y-2 space-y-reverse">
+    <div
+      ref={containerRef}
+      popover="manual"
+      className="fixed inset-auto bottom-6 right-4 z-[100] m-0 p-0 border-0 bg-transparent overflow-visible text-inherit flex flex-col-reverse space-y-2 space-y-reverse"
+    >
       {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
       ))}

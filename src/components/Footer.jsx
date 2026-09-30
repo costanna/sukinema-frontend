@@ -1,7 +1,16 @@
 import React from 'react';
-import { Film, Github, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
-export default function Footer() {
+const FOOTER_LINKS = [
+  { id: 'home', label: 'Catálogo de Tráilers' },
+  { id: 'tendencias', label: 'Tendencias' },
+  { id: 'anime', label: 'Anime & Animación' },
+  { id: 'scifi', label: 'Ciencia Ficción' },
+  { id: 'myList', label: 'Mi Lista' },
+  { id: 'stats', label: 'Estadísticas' },
+];
+
+export default function Footer({ onNavigate }) {
   return (
     <footer className="mt-20 border-t border-zinc-800/80 bg-[#101010] py-12 px-6 md:px-12 text-zinc-500 text-xs">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -15,7 +24,7 @@ export default function Footer() {
             </span>
           </div>
 
-          <div className="flex items-center space-x-3 text-zinc-400">
+          <div className="flex flex-wrap items-center gap-3 text-zinc-400">
             <span className="bg-zinc-800/80 px-2 py-1 rounded text-[11px] font-mono">React 18</span>
             <span className="bg-zinc-800/80 px-2 py-1 rounded text-[11px] font-mono">Vite + Tailwind</span>
             <span className="bg-zinc-800/80 px-2 py-1 rounded text-[11px] font-mono">Java 21</span>
@@ -23,24 +32,17 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-zinc-400 pt-2">
-          <div className="space-y-2">
-            <p className="hover:underline cursor-pointer">Catálogo de Tráilers</p>
-            <p className="hover:underline cursor-pointer">Próximos Estrenos</p>
-          </div>
-          <div className="space-y-2">
-            <p className="hover:underline cursor-pointer">Anime & Animación</p>
-            <p className="hover:underline cursor-pointer">Ciencia Ficción</p>
-          </div>
-          <div className="space-y-2">
-            <p className="hover:underline cursor-pointer">API REST Spring Boot</p>
-            <p className="hover:underline cursor-pointer">Consola H2 Database</p>
-          </div>
-          <div className="space-y-2">
-            <p className="hover:underline cursor-pointer">Términos de Uso</p>
-            <p className="hover:underline cursor-pointer">Privacidad</p>
-          </div>
-        </div>
+        <nav aria-label="Secciones" className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-zinc-400 pt-2">
+          {FOOTER_LINKS.map(link => (
+            <button
+              key={link.id}
+              onClick={() => onNavigate && onNavigate(link.id)}
+              className="text-left hover:underline hover:text-white transition-colors"
+            >
+              {link.label}
+            </button>
+          ))}
+        </nav>
 
         <div className="pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-center justify-between text-zinc-500 gap-2">
           <p>© 2026 SUKINEMA. Inspirado en la interfaz de Netflix para explorar y disfrutar trailers cinematográficos.</p>

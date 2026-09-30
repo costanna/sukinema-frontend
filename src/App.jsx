@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Navbar from './components/Navbar';
+import AuthScreen from './components/AuthScreen';
+import RecoveryCodeNotice from './components/RecoveryCode';
+import AccountModal from './components/AccountModal';
 import ProfileSelector from './components/ProfileSelector';
 import LoadingScreen from './components/LoadingScreen';
 import HeroBanner from './components/HeroBanner';
@@ -12,13 +15,21 @@ import StatsPanel from './components/StatsPanel';
 import ToastContainer, { showToast } from './components/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
 import Footer from './components/Footer';
-import { MovieAPI, ProfileAPI } from './services/api';
+import { AuthAPI, MovieAPI, ProfileAPI, Session, FALLBACK_PROFILES } from './services/api';
 import { FALLBACK_MOVIES, getFallbackCategories } from './data/fallbackData';
+import { CATEGORIES } from './constants/catalog';
+import { extractYoutubeId } from './utils/youtube';
 
 const ACTIVE_PROFILE_KEY = 'sukinema_active_profile';
-const LEGACY_MY_LIST_KEY = 'sukinema_my_list';
-const myListKey = (profileId) => `sukinema_my_list_${profileId}`;
-const likesKey = (profileId) => `sukinema_likes_${profileId}`;
+// Modo demo: la lista y los likes viven en el navegador, con claves propias para no mezclarse con los de una cuenta
+const myListKey = (profileId) => `sukinema_demo_my_list_${profileId}`;
+const likesKey = (profileId) => `sukinema_demo_likes_${profileId}`;
+// Claves que usaba el navegador antes de que la lista se guardara en el servidor
+const legacyMyListKey = (profileId) => `sukinema_my_list_${profileId}`;
+const legacyLikesKey = (profileId) => `sukinema_likes_${profileId}`;
+
+// Espera tras la última tecla antes de consultar al servidor
+const SEARCH_DEBOUNCE_MS = 250;
 
 const readIdSet = (key) => {
   try {
@@ -37,6 +48,23 @@ const writeIdSet = (key, idSet) => {
   }
 };
 
+const readStored = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+
+const removeStored = (...keys) => {
+  try {
+    keys.forEach(key => localStorage.removeItem(key));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 // Perfil infantil: solo títulos sin restricción de edad o hasta +12
 const isKidSafe = (movie) => {
   const age = parseInt(String(movie.ageRating || '').replace(/\D/g, ''), 10);
@@ -44,6 +72,15 @@ const isKidSafe = (movie) => {
 };
 
 export default function App() {
+  // Sesión: cuenta con la que se ha entrado, o modo demo si el servidor no responde
+  const [account, setAccount] = useState(null);
+  const [demoMode, setDemoMode] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(Session.hasToken());
+  const [serverDown, setServerDown] = useState(false);
+  // Código de recuperación recién emitido: se enseña una sola vez antes de seguir
+  const [pendingRecoveryCode, setPendingRecoveryCode] = useState(null);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+
   const [featuredMovie, setFeaturedMovie] = useState(null);
   const [categories, setCategories] = useState({});
   const [allMovies, setAllMovies] = useState([]);
@@ -57,41 +94,99 @@ export default function App() {
   const [movieToEdit, setMovieToEdit] = useState(null);
 
   const [activeTab, setActiveTab] = useState('home');
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const searchSeq = useRef(0);
+  const searchTimer = useRef(null);
 
   const [profiles, setProfiles] = useState([]);
   const [profilesLoaded, setProfilesLoaded] = useState(false);
   const [activeProfile, setActiveProfile] = useState(null);
   const [isProfileSelectorOpen, setIsProfileSelectorOpen] = useState(false);
 
-  // Mi Lista y likes se guardan por perfil
+  // Mi Lista y likes de cada perfil: con cuenta se guardan en el servidor; en modo demo, en el navegador
   const [myListIds, setMyListIds] = useState(new Set());
   const [likedIds, setLikedIds] = useState(new Set());
 
   useEffect(() => {
     if (!activeProfile) return;
-    setMyListIds(
-      readIdSet(myListKey(activeProfile.id)) || readIdSet(LEGACY_MY_LIST_KEY) || new Set([1, 4])
-    );
-    setLikedIds(readIdSet(likesKey(activeProfile.id)) || new Set());
-  }, [activeProfile?.id]);
+    const profileId = activeProfile.id;
 
-  const saveMyList = (newSet) => {
-    setMyListIds(newSet);
-    writeIdSet(myListKey(activeProfile.id), newSet);
+    if (demoMode) {
+      setMyListIds(readIdSet(myListKey(profileId)) || new Set());
+      setLikedIds(readIdSet(likesKey(profileId)) || new Set());
+      return;
+    }
+
+    // Vacías mientras llega la respuesta, para no mostrar la lista del perfil anterior
+    let cancelled = false;
+    setMyListIds(new Set());
+    setLikedIds(new Set());
+    (async () => {
+      try {
+        const library = await ProfileAPI.getLibrary(profileId);
+        const myList = new Set(library.myList);
+        // Traspaso único de la lista que este navegador guardaba antes de que existiera en el servidor
+        const legacyList = readIdSet(legacyMyListKey(profileId));
+        if (legacyList) {
+          for (const movieId of legacyList) {
+            if (myList.has(movieId)) continue;
+            try {
+              await ProfileAPI.addToMyList(profileId, movieId);
+              myList.add(movieId);
+            } catch {
+              // el tráiler ya no existe: no se traspasa
+            }
+          }
+        }
+        removeStored(legacyMyListKey(profileId), legacyLikesKey(profileId));
+        if (!cancelled) {
+          setMyListIds(myList);
+          setLikedIds(new Set(library.likes));
+        }
+      } catch (err) {
+        if (!cancelled && err.status !== 401) showToast('No se pudo cargar tu lista', 'error');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeProfile?.id, demoMode]);
+
+  const withToggled = (idSet, id, present) => {
+    const next = new Set(idSet);
+    if (present) next.add(id); else next.delete(id);
+    return next;
   };
 
-  const handleToggleMyList = (movie) => {
-    const newSet = new Set(myListIds);
-    if (newSet.has(movie.id)) {
-      newSet.delete(movie.id);
-      showToast(`"${movie.title}" eliminado de Mi Lista`, 'info');
+  const handleToggleMyList = async (movie) => {
+    const wasSaved = myListIds.has(movie.id);
+    const profileId = activeProfile.id;
+    // Se refleja al momento; si el servidor lo rechaza, se deshace
+    setMyListIds(prev => withToggled(prev, movie.id, !wasSaved));
+    if (demoMode) {
+      writeIdSet(myListKey(profileId), withToggled(myListIds, movie.id, !wasSaved));
     } else {
-      newSet.add(movie.id);
-      showToast(`"${movie.title}" añadido a Mi Lista ✓`, 'success');
+      try {
+        if (wasSaved) await ProfileAPI.removeFromMyList(profileId, movie.id);
+        else await ProfileAPI.addToMyList(profileId, movie.id);
+      } catch (err) {
+        setMyListIds(prev => withToggled(prev, movie.id, wasSaved));
+        if (err.status !== 401) showToast(err.message || 'No se pudo actualizar Mi Lista', 'error');
+        return;
+      }
     }
-    saveMyList(newSet);
+    showToast(
+      wasSaved ? `"${movie.title}" eliminado de Mi Lista` : `"${movie.title}" añadido a Mi Lista ✓`,
+      wasSaved ? 'info' : 'success'
+    );
+  };
+
+  const useLocalCatalog = () => {
+    setCategories(getFallbackCategories());
+    setAllMovies(FALLBACK_MOVIES);
+    setFeaturedMovie(FALLBACK_MOVIES[0]);
+    setBackendConnected(false);
   };
 
   const loadData = async () => {
@@ -109,39 +204,131 @@ export default function App() {
         setFeaturedMovie(feat || all[0]);
         setBackendConnected(true);
       } else {
-        setCategories(getFallbackCategories());
-        setAllMovies(FALLBACK_MOVIES);
-        setFeaturedMovie(FALLBACK_MOVIES[0]);
-        setBackendConnected(false);
+        useLocalCatalog();
       }
     } catch (err) {
       console.warn('Usando catálogo inicial por desconexión del backend:', err);
-      setCategories(getFallbackCategories());
-      setAllMovies(FALLBACK_MOVIES);
-      setFeaturedMovie(FALLBACK_MOVIES[0]);
-      setBackendConnected(false);
+      useLocalCatalog();
     } finally {
       setLoading(false);
     }
   };
 
-  const loadProfiles = async () => {
-    const list = await ProfileAPI.getAll();
-    setProfiles(list);
-    let savedId = null;
-    try {
-      savedId = localStorage.getItem(ACTIVE_PROFILE_KEY);
-    } catch (e) {
-      console.error(e);
-    }
+  const restoreActiveProfile = (list) => {
+    const savedId = readStored(ACTIVE_PROFILE_KEY);
     setActiveProfile(list.find(p => String(p.id) === savedId) || null);
-    setProfilesLoaded(true);
+  };
+
+  const loadProfiles = async () => {
+    try {
+      const list = await ProfileAPI.getAll();
+      setProfiles(list);
+      restoreActiveProfile(list);
+    } catch (err) {
+      setProfiles([]);
+      if (err.status !== 401) showToast('No se pudieron cargar los perfiles', 'error');
+    } finally {
+      setProfilesLoaded(true);
+    }
+  };
+
+  // Session handlers
+  const startSession = (sessionAccount) => {
+    setAccount(sessionAccount);
+    setDemoMode(false);
+    setServerDown(false);
+    loadData();
+    loadProfiles();
+  };
+
+  const clearSessionState = () => {
+    Session.clear();
+    removeStored(ACTIVE_PROFILE_KEY);
+    clearTimeout(searchTimer.current);
+    searchSeq.current++;
+    setAccount(null);
+    setDemoMode(false);
+    setActiveProfile(null);
+    setProfiles([]);
+    setProfilesLoaded(false);
+    setIsProfileSelectorOpen(false);
+    setIsTrailerModalOpen(false);
+    setIsAddModalOpen(false);
+    setIsEditModalOpen(false);
+    setIsAccountModalOpen(false);
+    setPendingRecoveryCode(null);
+    setSelectedMovie(null);
+    setActiveTab('home');
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearching(false);
   };
 
   useEffect(() => {
-    loadData();
-    loadProfiles();
+    Session.onExpired(() => {
+      clearSessionState();
+      showToast('Tu sesión ha caducado. Vuelve a iniciar sesión.', 'warning');
+    });
+
+    if (Session.hasToken()) {
+      AuthAPI.me()
+        .then(startSession)
+        .catch((err) => {
+          // Un 401 ya lo ha gestionado Session.onExpired
+          if (err.status === 0) setServerDown(true);
+        })
+        .finally(() => setCheckingSession(false));
+    } else {
+      // Sin sesión guardada: se llama al servidor para irlo despertando mientras se escribe
+      AuthAPI.ping().catch((err) => {
+        if (err.status === 0) setServerDown(true);
+      });
+    }
+
+    return () => Session.onExpired(null);
   }, []);
+
+  const handleLogin = async (email, password) => {
+    const sessionAccount = await AuthAPI.login(email, password);
+    startSession(sessionAccount);
+    showToast(`Hola de nuevo, ${sessionAccount.name}`, 'success');
+  };
+
+  const handleRegister = async (name, email, password) => {
+    const { account: sessionAccount, recoveryCode } = await AuthAPI.register(name, email, password);
+    setPendingRecoveryCode(recoveryCode);
+    startSession(sessionAccount);
+    showToast(`Cuenta creada. ¡Te damos la bienvenida, ${sessionAccount.name}!`, 'success');
+  };
+
+  const handleRecover = async (email, recoveryCode, newPassword) => {
+    const { account: sessionAccount, recoveryCode: newRecoveryCode } = await AuthAPI.recover(email, recoveryCode, newPassword);
+    setPendingRecoveryCode(newRecoveryCode);
+    startSession(sessionAccount);
+    showToast('Contraseña restablecida', 'success');
+  };
+
+  // Los errores suben al formulario de "Mi cuenta", que muestra el motivo
+  const handleChangePassword = async (currentPassword, newPassword) => {
+    setAccount(await AuthAPI.changePassword(currentPassword, newPassword));
+    showToast('Contraseña cambiada ✓', 'success');
+  };
+
+  const handleEnterDemo = () => {
+    setDemoMode(true);
+    useLocalCatalog();
+    setLoading(false);
+    setProfiles(FALLBACK_PROFILES);
+    restoreActiveProfile(FALLBACK_PROFILES);
+    setProfilesLoaded(true);
+    showToast('Modo demo: los cambios no se guardan', 'info');
+  };
+
+  const handleLogout = () => {
+    const wasDemo = demoMode;
+    clearSessionState();
+    showToast(wasDemo ? 'Has salido del modo demo' : 'Sesión cerrada', 'info');
+  };
 
   // Profile handlers
   const handleSelectProfile = (profile) => {
@@ -158,17 +345,24 @@ export default function App() {
     }
   };
 
+  // Los errores de crear y editar se dejan subir: el formulario de perfil muestra el motivo
   const handleCreateProfile = async (profileData) => {
-    const created = await ProfileAPI.create(profileData);
-    // Un perfil nuevo empieza con su lista y sus likes vacíos
-    writeIdSet(myListKey(created.id), new Set());
-    writeIdSet(likesKey(created.id), new Set());
+    const created = demoMode
+      ? { ...profileData, id: Date.now() }
+      : await ProfileAPI.create(profileData);
+    if (demoMode) {
+      // Un perfil nuevo empieza con su lista y sus likes vacíos
+      writeIdSet(myListKey(created.id), new Set());
+      writeIdSet(likesKey(created.id), new Set());
+    }
     setProfiles(prev => [...prev, created]);
     showToast(`Perfil "${created.name}" creado ✓`, 'success');
   };
 
   const handleUpdateProfile = async (id, profileData) => {
-    const updated = await ProfileAPI.update(id, profileData);
+    const updated = demoMode
+      ? { ...profiles.find(p => p.id === id), ...profileData }
+      : await ProfileAPI.update(id, profileData);
     setProfiles(prev => prev.map(p => p.id === id ? updated : p));
     if (activeProfile?.id === id) {
       setActiveProfile(updated);
@@ -177,46 +371,64 @@ export default function App() {
   };
 
   const handleDeleteProfile = async (profile) => {
-    const ok = await ProfileAPI.delete(profile.id);
-    if (!ok) {
-      showToast('No se pudo eliminar el perfil', 'error');
-      return;
+    if (!demoMode) {
+      try {
+        await ProfileAPI.delete(profile.id);
+      } catch (err) {
+        showToast(err.message || 'No se pudo eliminar el perfil', 'error');
+        return;
+      }
     }
     setProfiles(prev => prev.filter(p => p.id !== profile.id));
-    try {
-      localStorage.removeItem(myListKey(profile.id));
-      localStorage.removeItem(likesKey(profile.id));
-      if (activeProfile?.id === profile.id) {
-        localStorage.removeItem(ACTIVE_PROFILE_KEY);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    removeStored(myListKey(profile.id), likesKey(profile.id), legacyMyListKey(profile.id), legacyLikesKey(profile.id));
     if (activeProfile?.id === profile.id) {
+      removeStored(ACTIVE_PROFILE_KEY);
       setActiveProfile(null);
     }
     showToast(`Perfil "${profile.name}" eliminado`, 'info');
   };
 
-  const handleSearch = async (query) => {
+  const changeTab = (tab) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0 });
+  };
+
+  const handleExploreCategory = (category) => {
+    setSelectedCategory(category);
+    changeTab('category');
+  };
+
+  const handleSearch = (query) => {
     setSearchQuery(query);
-    if (!query.trim()) {
+    clearTimeout(searchTimer.current);
+    // Cada búsqueda lleva un número: una respuesta que llega tarde no pisa a una más reciente
+    const seq = ++searchSeq.current;
+    const term = query.trim();
+    if (!term) {
       setSearchResults([]);
+      setSearching(false);
       return;
     }
-    if (backendConnected) {
-      const results = await MovieAPI.search(query);
-      setSearchResults(results);
-    } else {
-      const lower = query.toLowerCase();
-      const filtered = allMovies.filter(m =>
+    if (!backendConnected) {
+      const lower = term.toLowerCase();
+      setSearchResults(allMovies.filter(m =>
         m.title.toLowerCase().includes(lower) ||
         (m.genres && m.genres.toLowerCase().includes(lower)) ||
         (m.cast && m.cast.toLowerCase().includes(lower)) ||
+        (m.director && m.director.toLowerCase().includes(lower)) ||
         (m.category && m.category.toLowerCase().includes(lower))
-      );
-      setSearchResults(filtered);
+      ));
+      setSearching(false);
+      return;
     }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      const results = await MovieAPI.search(term);
+      if (seq === searchSeq.current) {
+        setSearchResults(results);
+        setSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
   };
 
   const handlePlayTrailer = (movie) => {
@@ -233,23 +445,20 @@ export default function App() {
     setIsTrailerModalOpen(false);
   };
 
+  // Si el guardado falla, el error sube al formulario, que sigue abierto con lo escrito
   const handleMovieAdded = async (newMovieData) => {
     if (backendConnected) {
-      try {
-        const created = await MovieAPI.create(newMovieData);
-        await loadData();
-        showToast(`"${created.title}" añadido al catálogo 🎬`, 'success');
-        setSelectedMovie(created);
-        setIsTrailerModalOpen(true);
-      } catch (err) {
-        showToast('Error al guardar el tráiler', 'error');
-      }
+      const created = await MovieAPI.create(newMovieData);
+      await loadData();
+      showToast(`"${created.title}" añadido al catálogo 🎬`, 'success');
+      setSelectedMovie(created);
+      setIsTrailerModalOpen(true);
     } else {
       const mockNew = {
         ...newMovieData,
         id: Date.now(),
         likes: 0,
-        youtubeId: newMovieData.trailerUrl,
+        youtubeId: extractYoutubeId(newMovieData.trailerUrl),
       };
       setAllMovies(prev => [mockNew, ...prev]);
       setCategories(prev => {
@@ -271,14 +480,16 @@ export default function App() {
 
   // Reemplaza un tráiler en todas las vistas que lo muestran
   const applyMovieUpdate = (updated) => {
-    setAllMovies(prev => prev.map(m => m.id === updated.id ? updated : m));
+    const replace = (list) => list.map(m => m.id === updated.id ? updated : m);
+    setAllMovies(replace);
     setCategories(prev => {
       const newCats = {};
       for (const [cat, list] of Object.entries(prev)) {
-        newCats[cat] = list.map(m => m.id === updated.id ? updated : m);
+        newCats[cat] = replace(list);
       }
       return newCats;
     });
+    setSearchResults(replace);
     setFeaturedMovie(prev => prev?.id === updated.id ? updated : prev);
     setSelectedMovie(prev => prev?.id === updated.id ? updated : prev);
   };
@@ -290,34 +501,34 @@ export default function App() {
       showToast(`"${updated.title}" actualizado correctamente ✓`, 'success');
       setSelectedMovie(updated);
     } else {
-      const updated = { ...movieToEdit, ...updatedData };
+      const updated = { ...movieToEdit, ...updatedData, youtubeId: extractYoutubeId(updatedData.trailerUrl) };
       applyMovieUpdate(updated);
       showToast(`"${updated.title}" actualizado localmente`, 'info');
       setSelectedMovie(updated);
     }
   };
 
-  // Like handler
+  // Like handler: un like por perfil; pulsar de nuevo lo quita
   const handleLikeMovie = async (movie) => {
-    if (likedIds.has(movie.id)) {
-      showToast(`Ya te gusta "${movie.title}"`, 'info');
-      return;
-    }
-    let updated = { ...movie, likes: (movie.likes || 0) + 1 };
-    if (backendConnected) {
-      const saved = await MovieAPI.like(movie.id);
-      if (!saved) {
-        showToast('No se pudo registrar el like', 'error');
+    const wasLiked = likedIds.has(movie.id);
+    const profileId = activeProfile.id;
+    let updated;
+    if (demoMode) {
+      updated = { ...movie, likes: Math.max(0, (movie.likes || 0) + (wasLiked ? -1 : 1)) };
+      writeIdSet(likesKey(profileId), withToggled(likedIds, movie.id, !wasLiked));
+    } else {
+      try {
+        updated = wasLiked
+          ? await ProfileAPI.unlike(profileId, movie.id)
+          : await ProfileAPI.like(profileId, movie.id);
+      } catch (err) {
+        if (err.status !== 401) showToast(err.message || 'No se pudo registrar el like', 'error');
         return;
       }
-      updated = saved;
     }
     applyMovieUpdate(updated);
-    const newSet = new Set(likedIds);
-    newSet.add(movie.id);
-    setLikedIds(newSet);
-    writeIdSet(likesKey(activeProfile.id), newSet);
-    showToast(`Te gusta "${movie.title}" 👍`, 'success');
+    setLikedIds(prev => withToggled(prev, movie.id, !wasLiked));
+    showToast(wasLiked ? `Ya no te gusta "${movie.title}"` : `Te gusta "${movie.title}" 👍`, wasLiked ? 'info' : 'success');
   };
 
   // Delete handler
@@ -327,12 +538,13 @@ export default function App() {
       try {
         await MovieAPI.delete(deletedId);
       } catch (err) {
-        showToast('Error al eliminar el tráiler', 'error');
+        showToast(err.message || 'Error al eliminar el tráiler', 'error');
         return;
       }
     }
     setIsTrailerModalOpen(false);
     setAllMovies(prev => prev.filter(m => m.id !== deletedId));
+    setSearchResults(prev => prev.filter(m => m.id !== deletedId));
     setCategories(prev => {
       const newCats = {};
       for (const [cat, list] of Object.entries(prev)) {
@@ -341,11 +553,8 @@ export default function App() {
       }
       return newCats;
     });
-    if (myListIds.has(deletedId)) {
-      const newSet = new Set(myListIds);
-      newSet.delete(deletedId);
-      saveMyList(newSet);
-    }
+    setMyListIds(prev => withToggled(prev, deletedId, false));
+    setLikedIds(prev => withToggled(prev, deletedId, false));
     if (featuredMovie?.id === deletedId) {
       setFeaturedMovie(allMovies.find(m => m.id !== deletedId) || null);
     }
@@ -354,7 +563,8 @@ export default function App() {
 
   // Lo que ve el perfil activo: el infantil solo recibe títulos aptos
   const isKid = !!activeProfile?.isKid;
-  const canManage = !isKid;
+  // El catálogo lo gestiona la cuenta administradora (en modo demo, los cambios son solo locales)
+  const canManage = !isKid && (demoMode || account?.role === 'ADMIN');
 
   const visibleMovies = useMemo(
     () => (isKid ? allMovies.filter(isKidSafe) : allMovies),
@@ -370,6 +580,12 @@ export default function App() {
     }
     return safeCats;
   }, [categories, isKid]);
+
+  // Categorías que ofrecen los formularios: las habituales más las que ya existan en el catálogo
+  const categoryOptions = useMemo(
+    () => [...new Set([...CATEGORIES, ...allMovies.map(m => m.category).filter(Boolean)])],
+    [allMovies]
+  );
 
   const visibleFeatured = isKid && !(featuredMovie && isKidSafe(featuredMovie))
     ? (visibleMovies[0] || null)
@@ -392,6 +608,9 @@ export default function App() {
     if (activeTab === 'myList') {
       return visibleMovies.filter(m => myListIds.has(m.id));
     }
+    if (activeTab === 'category') {
+      return visibleCategories[selectedCategory] || [];
+    }
     return [];
   };
 
@@ -401,7 +620,37 @@ export default function App() {
     scifi: '🚀 Ciencia Ficción & Fantasía',
     myList: '📌 Mi Lista de Tráilers',
     stats: '📊 Estadísticas',
+    category: selectedCategory,
   };
+
+  // Pantallas previas al catálogo. La key mantiene vivo el ToastContainer al pasar de una a otra.
+  let gate = null;
+  if (checkingSession) {
+    gate = <LoadingScreen />;
+  } else if (!account && !demoMode) {
+    gate = (
+      <AuthScreen
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        onRecover={handleRecover}
+        serverDown={serverDown}
+        onEnterDemo={handleEnterDemo}
+      />
+    );
+  } else if (pendingRecoveryCode) {
+    gate = <RecoveryCodeNotice code={pendingRecoveryCode} onDone={() => setPendingRecoveryCode(null)} />;
+  } else if (!profilesLoaded) {
+    gate = <LoadingScreen />;
+  }
+
+  if (gate) {
+    return (
+      <div className="min-h-screen bg-[#141414] text-white">
+        {gate}
+        <ToastContainer key="toasts" />
+      </div>
+    );
+  }
 
   const profileSelector = (
     <ProfileSelector
@@ -412,19 +661,23 @@ export default function App() {
       onUpdate={handleUpdateProfile}
       onDelete={handleDeleteProfile}
       onClose={activeProfile ? () => setIsProfileSelectorOpen(false) : undefined}
+      onLogout={handleLogout}
+      accountLabel={demoMode ? 'Modo demo' : account?.email}
     />
   );
 
   // Sin perfil activo no se monta el catálogo (evita que el banner reproduzca el tráiler de fondo).
-  // La key mantiene vivo el ToastContainer al pasar de esta pantalla al catálogo.
   if (!activeProfile) {
     return (
       <div className="min-h-screen bg-[#141414] text-white">
-        {profilesLoaded ? profileSelector : <LoadingScreen />}
+        {profileSelector}
         <ToastContainer key="toasts" />
       </div>
     );
   }
+
+  const tabMovies = getTabFilteredMovies();
+  const isAnyOverlayOpen = isTrailerModalOpen || isAddModalOpen || isEditModalOpen || isProfileSelectorOpen || isAccountModalOpen;
 
   return (
     <div className="min-h-screen bg-[#141414] text-white flex flex-col selection:bg-[#E50914] selection:text-white">
@@ -432,13 +685,16 @@ export default function App() {
         onSearch={handleSearch}
         onOpenAddModal={canManage ? () => setIsAddModalOpen(true) : undefined}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={changeTab}
         myListCount={myListCount}
         backendConnected={backendConnected}
         profiles={profiles}
         activeProfile={activeProfile}
         onSwitchProfile={handleSelectProfile}
         onManageProfiles={() => setIsProfileSelectorOpen(true)}
+        accountLabel={demoMode ? 'Modo demo' : account?.email}
+        onOpenAccount={demoMode ? undefined : () => setIsAccountModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       <main className="flex-grow">
@@ -446,11 +702,15 @@ export default function App() {
           <div className="pt-24 px-4 md:px-12 space-y-6">
             <h1 className="text-xl md:text-2xl font-bold text-gray-200">
               Resultados para <span className="text-white font-extrabold">"{searchQuery}"</span>
-              <span className="text-xs text-gray-400 font-normal ml-3">
-                ({visibleSearchResults.length} tráilers encontrados)
-              </span>
+              {!searching && (
+                <span className="text-xs text-gray-400 font-normal ml-3">
+                  ({visibleSearchResults.length} tráilers encontrados)
+                </span>
+              )}
             </h1>
-            {visibleSearchResults.length === 0 ? (
+            {searching && visibleSearchResults.length === 0 ? (
+              <p className="py-20 text-center text-gray-400 text-lg" role="status">Buscando…</p>
+            ) : visibleSearchResults.length === 0 ? (
               <div className="py-20 text-center space-y-4">
                 <p className="text-gray-400 text-lg">No se encontraron tráilers para tu búsqueda.</p>
                 {canManage && (
@@ -490,7 +750,7 @@ export default function App() {
                 {backendConnected ? 'Datos en tiempo real desde Spring Boot API' : 'Datos del catálogo local'}
               </p>
             </div>
-            <StatsPanel movies={visibleMovies} myListIds={myListIds} />
+            <StatsPanel movies={visibleMovies} myListCount={myListCount} />
           </div>
         ) : activeTab !== 'home' ? (
           <div className="pt-24 px-4 md:px-12 space-y-6 min-h-[60vh]">
@@ -499,10 +759,10 @@ export default function App() {
                 {TAB_LABELS[activeTab] || activeTab}
               </h1>
               {activeTab === 'myList' && (
-                <span className="text-xs text-gray-400">{getTabFilteredMovies().length} guardados</span>
+                <span className="text-xs text-gray-400">{tabMovies.length} guardados</span>
               )}
             </div>
-            {getTabFilteredMovies().length === 0 ? (
+            {tabMovies.length === 0 ? (
               <div className="py-20 text-center space-y-3">
                 <p className="text-gray-400 text-base">
                   {activeTab === 'myList'
@@ -510,7 +770,7 @@ export default function App() {
                     : 'No hay títulos disponibles en esta sección.'}
                 </p>
                 <button
-                  onClick={() => setActiveTab('home')}
+                  onClick={() => changeTab('home')}
                   className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded text-sm font-semibold transition"
                 >
                   Explorar catálogo completo
@@ -518,7 +778,7 @@ export default function App() {
               </div>
             ) : (
               <div className="grid grid-cols-1 min-[384px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {getTabFilteredMovies().map(movie => (
+                {tabMovies.map(movie => (
                   <MovieCard
                     key={movie.id}
                     movie={movie}
@@ -538,6 +798,8 @@ export default function App() {
           <>
             <HeroBanner
               movie={visibleFeatured}
+              loading={loading}
+              paused={isAnyOverlayOpen}
               onPlayTrailer={handlePlayTrailer}
               onOpenDetails={handleOpenDetails}
             />
@@ -553,6 +815,7 @@ export default function App() {
                   onToggleMyList={handleToggleMyList}
                   likedIds={likedIds}
                   onLikeMovie={handleLikeMovie}
+                  onExplore={handleExploreCategory}
                 />
               ))}
             </div>
@@ -578,6 +841,7 @@ export default function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onMovieAdded={handleMovieAdded}
+        categories={categoryOptions}
       />
 
       <EditMovieModal
@@ -589,6 +853,15 @@ export default function App() {
           setTimeout(() => setIsTrailerModalOpen(true), 100);
         }}
         onMovieUpdated={handleMovieUpdated}
+        categories={categoryOptions}
+      />
+
+      <AccountModal
+        account={account}
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        onChangePassword={handleChangePassword}
+        onNewRecoveryCode={AuthAPI.newRecoveryCode}
       />
 
       {isProfileSelectorOpen && profileSelector}
@@ -597,8 +870,7 @@ export default function App() {
       <ToastContainer key="toasts" />
       <ScrollToTop />
 
-      <Footer />
+      <Footer onNavigate={changeTab} />
     </div>
   );
 }
-

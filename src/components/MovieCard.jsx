@@ -63,7 +63,8 @@ export default function MovieCard({
               }}
               className="w-8 h-8 rounded-full border border-gray-400 hover:border-white bg-[#2a2a2a]/60 text-white flex items-center justify-center transition"
               title={isSaved ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}
-              aria-label="Agregar a Mi Lista"
+              aria-label={isSaved ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}
+              aria-pressed={isSaved}
             >
               {isSaved ? <Check size={16} className="text-green-400" /> : <Plus size={16} />}
             </button>

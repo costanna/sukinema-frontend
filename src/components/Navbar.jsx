@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, X, ChevronDown, Settings, Menu } from 'lucide-react';
+import { Search, Plus, X, ChevronDown, Settings, Menu, LogOut, UserRound } from 'lucide-react';
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Inicio' },
@@ -20,7 +20,10 @@ export default function Navbar({
   profiles = [],
   activeProfile = null,
   onSwitchProfile,
-  onManageProfiles
+  onManageProfiles,
+  accountLabel,
+  onOpenAccount,
+  onLogout
 }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -120,10 +123,10 @@ export default function Navbar({
         isScrolled || mobileMenuOpen ? 'bg-[#141414]/95 shadow-xl backdrop-blur-md' : 'bg-gradient-to-b from-black/80 via-black/40 to-transparent'
       }`}
     >
-      <div className="flex items-center space-x-3 md:space-x-10">
+      <div className="flex items-center gap-3 xl:gap-8">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden text-gray-200 hover:text-white focus:outline-none"
+          className="xl:hidden text-gray-200 hover:text-white focus:outline-none"
           aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           aria-expanded={mobileMenuOpen}
           aria-controls="mobileNav"
@@ -144,12 +147,12 @@ export default function Navbar({
           </span>
         </button>
 
-        <ul className="hidden md:flex items-center space-x-5 text-sm font-medium text-gray-300">
+        <ul className="hidden xl:flex items-center gap-5 text-sm font-medium text-gray-300">
           {NAV_ITEMS.map(item => (
             <li key={item.id}>
               <button
                 onClick={() => goToTab(item.id)}
-                className={`hover:text-white transition-colors flex items-center space-x-1 ${isActiveTab(item.id) ? 'text-white font-bold' : ''}`}
+                className={`hover:text-white transition-colors flex items-center space-x-1 whitespace-nowrap ${isActiveTab(item.id) ? 'text-white font-bold' : ''}`}
               >
                 <span>{item.label}</span>
                 {item.id === 'myList' && myListBadge}
@@ -159,13 +162,13 @@ export default function Navbar({
         </ul>
       </div>
 
-      <div className="flex items-center space-x-3 md:space-x-5 text-white">
+      <div className="flex items-center gap-3 md:gap-5 text-white">
         <div
-          className="hidden lg:flex items-center space-x-1.5 text-xs px-2.5 py-1 rounded-full bg-black/40 border border-white/10"
+          className="hidden sm:flex items-center space-x-1.5 text-xs px-2.5 py-1 rounded-full bg-black/40 border border-white/10 whitespace-nowrap"
           title={backendConnected ? "Conectado al backend Spring Boot" : "Usando catálogo inicial"}
         >
           <span className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-400'}`}></span>
-          <span className="text-gray-300 font-medium">
+          <span className="hidden 2xl:inline text-gray-300 font-medium">
             {backendConnected ? 'Spring Boot 3 API' : 'Catálogo Local'}
           </span>
         </div>
@@ -173,7 +176,7 @@ export default function Navbar({
         {onOpenAddModal && (
           <button
             onClick={onOpenAddModal}
-            className={`${searchOpen ? 'hidden sm:flex' : 'flex'} items-center space-x-1.5 bg-[#E50914] hover:bg-[#b80710] text-white text-xs md:text-sm font-semibold px-3 py-1.5 rounded transition-all transform active:scale-95 shadow-md shadow-red-950/40`}
+            className={`${searchOpen ? 'hidden sm:flex' : 'flex'} items-center space-x-1.5 bg-[#E50914] hover:bg-[#b80710] text-white text-xs md:text-sm font-semibold px-3 py-1.5 rounded transition-all transform active:scale-95 shadow-md shadow-red-950/40 whitespace-nowrap`}
             title="Agregar un nuevo tráiler con video de YouTube"
             aria-label="Nuevo Tráiler"
           >
@@ -201,7 +204,7 @@ export default function Navbar({
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Títulos, géneros, actores..."
+                placeholder="Títulos, actores, directores..."
                 className="bg-transparent text-sm text-white focus:outline-none ml-2 w-full placeholder-gray-400"
                 autoFocus
               />
@@ -272,7 +275,38 @@ export default function Navbar({
                   <Settings size={16} className="flex-shrink-0" />
                   <span>Administrar perfiles</span>
                 </button>
+                {onOpenAccount && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      onOpenAccount();
+                    }}
+                    className="w-full flex items-center space-x-3 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 transition text-left"
+                  >
+                    <UserRound size={16} className="flex-shrink-0" />
+                    <span>Mi cuenta</span>
+                  </button>
+                )}
+                {onLogout && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      onLogout();
+                    }}
+                    className="w-full flex items-center space-x-3 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 transition text-left"
+                  >
+                    <LogOut size={16} className="flex-shrink-0" />
+                    <span>Cerrar sesión</span>
+                  </button>
+                )}
               </div>
+              {accountLabel && (
+                <p className="px-3 pt-2 mt-2 border-t border-white/15 text-[11px] text-gray-500 truncate" title={accountLabel}>
+                  {accountLabel}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -281,7 +315,7 @@ export default function Navbar({
       {mobileMenuOpen && (
         <div
           id="mobileNav"
-          className="md:hidden absolute top-full left-0 right-0 bg-[#141414] border-t border-white/10 shadow-2xl"
+          className="xl:hidden absolute top-full left-0 right-0 bg-[#141414] border-t border-white/10 shadow-2xl"
         >
           <ul className="px-4 py-1 text-sm font-medium text-gray-300 divide-y divide-white/5">
             {NAV_ITEMS.map(item => (

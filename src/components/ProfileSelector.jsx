@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X, Trash2, Check, AlertCircle, Pencil } from 'lucide-react';
+import { Plus, X, Trash2, Check, AlertCircle, Pencil, LogOut } from 'lucide-react';
 
 const MAX_PROFILES = 5;
 
@@ -23,7 +23,9 @@ export default function ProfileSelector({
   onCreate,
   onUpdate,
   onDelete,
-  onClose
+  onClose,
+  onLogout,
+  accountLabel
 }) {
   const [managing, setManaging] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -299,6 +301,19 @@ export default function ProfileSelector({
             >
               {managing ? 'Listo' : 'Administrar perfiles'}
             </button>
+          )}
+
+          {onLogout && !managing && (
+            <p className="mt-6 text-xs text-gray-500 text-center">
+              {accountLabel && <span className="block mb-1">{accountLabel}</span>}
+              <button
+                onClick={onLogout}
+                className="inline-flex items-center space-x-1.5 text-gray-400 hover:text-white transition"
+              >
+                <LogOut size={14} />
+                <span>Cerrar sesión</span>
+              </button>
+            </p>
           )}
         </>
       )}

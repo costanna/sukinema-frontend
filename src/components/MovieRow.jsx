@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MovieCard from './MovieCard';
 
@@ -10,11 +10,26 @@ export default function MovieRow({
   myListIds = new Set(),
   onToggleMyList,
   likedIds = new Set(),
-  onLikeMovie
+  onLikeMovie,
+  onExplore
 }) {
   const rowRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  // Las flechas solo aparecen si la fila se puede desplazar en ese sentido
+  const updateArrows = () => {
+    const row = rowRef.current;
+    if (!row) return;
+    setShowLeftArrow(row.scrollLeft > 20);
+    setShowRightArrow(row.scrollLeft < row.scrollWidth - row.clientWidth - 20);
+  };
+
+  useEffect(() => {
+    updateArrows();
+    window.addEventListener('resize', updateArrows);
+    return () => window.removeEventListener('resize', updateArrows);
+  }, [movies.length]);
 
   if (!movies || movies.length === 0) {
     return null;
@@ -31,23 +46,7 @@ export default function MovieRow({
         behavior: 'smooth'
       });
 
-      setTimeout(() => {
-        if (rowRef.current) {
-          setShowLeftArrow(rowRef.current.scrollLeft > 20);
-          setShowRightArrow(
-            rowRef.current.scrollLeft < rowRef.current.scrollWidth - rowRef.current.clientWidth - 20
-          );
-        }
-      }, 350);
-    }
-  };
-
-  const onScrollCheck = () => {
-    if (rowRef.current) {
-      setShowLeftArrow(rowRef.current.scrollLeft > 20);
-      setShowRightArrow(
-        rowRef.current.scrollLeft < rowRef.current.scrollWidth - rowRef.current.clientWidth - 20
-      );
+      setTimeout(updateArrows, 350);
     }
   };
 
@@ -55,9 +54,15 @@ export default function MovieRow({
     <div className="space-y-2 md:space-y-3 my-6 md:my-8 px-4 md:px-12 group/row relative">
       <h2 className="text-lg md:text-2xl font-bold text-gray-100 group-hover/row:text-white transition-colors flex items-center space-x-2">
         <span>{title}</span>
-        <span className="text-xs text-[#E50914] font-semibold opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center cursor-pointer">
-          Explorar todos &gt;
-        </span>
+        {onExplore && (
+          <button
+            onClick={() => onExplore(title)}
+            className="text-xs text-[#E50914] font-semibold opacity-0 group-hover/row:opacity-100 focus:opacity-100 transition-opacity flex items-center hover:underline"
+            aria-label={`Explorar todos los tráilers de ${title}`}
+          >
+            Explorar todos &gt;
+          </button>
+        )}
       </h2>
 
       <div className="relative">
@@ -73,7 +78,7 @@ export default function MovieRow({
 
         <div
           ref={rowRef}
-          onScroll={onScrollCheck}
+          onScroll={updateArrows}
           className="flex items-center space-x-3 md:space-x-4 overflow-x-auto no-scrollbar py-4 px-1 scroll-smooth"
         >
           {movies.map((movie) => (

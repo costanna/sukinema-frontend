@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Play, Info, Volume2, VolumeX, Flame } from 'lucide-react';
 import TrailerImage from './TrailerImage';
 
-export default function HeroBanner({ movie, onPlayTrailer, onOpenDetails }) {
+export default function HeroBanner({ movie, loading = false, paused = false, onPlayTrailer, onOpenDetails }) {
   const [isMuted, setIsMuted] = useState(true);
   const [playPreview, setPlayPreview] = useState(false);
 
@@ -14,9 +14,14 @@ export default function HeroBanner({ movie, onPlayTrailer, onOpenDetails }) {
   }, [movie]);
 
   if (!movie) {
+    // Cargando: indicador. Ya cargado y sin títulos (p. ej. perfil infantil sin nada apto): se dice
     return (
-      <div className="relative h-[70vh] bg-[#141414] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="relative h-[70vh] bg-[#141414] flex items-center justify-center px-6 text-center">
+        {loading ? (
+          <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin" role="status" aria-label="Cargando"></div>
+        ) : (
+          <p className="text-gray-400 text-base">No hay tráilers disponibles para este perfil.</p>
+        )}
       </div>
     );
   }
@@ -25,7 +30,7 @@ export default function HeroBanner({ movie, onPlayTrailer, onOpenDetails }) {
 
   return (
     <div className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden select-none bg-black">
-      {playPreview && youtubeId ? (
+      {playPreview && youtubeId && !paused ? (
         <div className="absolute inset-0 w-full h-full pointer-events-none scale-125 md:scale-110">
           <iframe
             src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&showinfo=0&rel=0&loop=1&playlist=${youtubeId}&modestbranding=1&enablejsapi=1`}
@@ -90,7 +95,7 @@ export default function HeroBanner({ movie, onPlayTrailer, onOpenDetails }) {
 
       {/* En móvil va arriba para no tapar los botones del banner */}
       <div className="absolute top-20 md:top-auto md:bottom-28 right-4 md:right-12 z-20 flex items-center space-x-3">
-        {playPreview && (
+        {playPreview && youtubeId && !paused && (
           <button
             onClick={() => setIsMuted(!isMuted)}
             className="p-2.5 rounded-full border border-white/40 bg-black/40 text-white hover:bg-white/20 transition backdrop-blur-sm"

@@ -15,15 +15,23 @@ npm run dev
 
 Queda en http://localhost:5173 y espera el backend en http://localhost:8088.
 
-Si el backend no está levantado, la app sigue funcionando con un catálogo local de ejemplo (el indicador del navbar pasa de "Spring Boot 3 API" a "Catálogo Local") y los cambios no se guardan.
+## Cuentas
+
+La app pide iniciar sesión (o crear una cuenta) antes de mostrar el catálogo. Los campos de contraseña tienen un botón para verla mientras se escribe. La sesión dura 7 días y se cierra desde el menú del avatar.
+
+Al crear la cuenta se muestra un **código de recuperación**: es lo que permite entrar desde "¿Olvidaste tu contraseña?" y poner una nueva. Desde **Mi cuenta** (menú del avatar) se cambia la contraseña y se genera un código nuevo.
+
+Solo la cuenta administradora ve los botones para añadir, editar y eliminar tráilers; el servidor rechaza esas acciones a las demás. Cuál es la cuenta administradora se explica en el [README del backend](https://github.com/costanna/sukinema-backend#cuentas-y-permisos).
+
+Si el servidor no responde, la pantalla de acceso lo avisa y ofrece un **modo demo**: un catálogo local de ejemplo donde nada se guarda.
 
 ## Perfiles
 
-Al entrar se elige quién está viendo. Un perfil **infantil** solo ve tráilers para todos los públicos, +7 y +12, y no puede añadir, editar ni eliminar tráilers.
+Tras entrar se elige quién está viendo. Cada cuenta tiene sus propios perfiles, entre 1 y 5, y se gestionan desde "Administrar perfiles" (menú del avatar).
 
-Desde "Administrar perfiles" (menú del avatar) se crean, editan y eliminan perfiles, hasta un máximo de 5.
+Un perfil **infantil** solo ve tráilers para todos los públicos, +7 y +12, y no puede añadir, editar ni eliminar tráilers.
 
-"Mi Lista", los likes ya dados y el perfil activo se guardan en el `localStorage` del navegador, separados por perfil.
+"Mi Lista" y los likes de cada perfil se guardan en el servidor, así que se ven igual desde cualquier dispositivo; cada perfil puede dar un like por tráiler, y pulsar de nuevo lo quita. En el navegador solo se recuerda la sesión y el perfil activo.
 
 ## Variables de entorno
 

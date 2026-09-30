@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Film, Play, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { CATEGORIES, AGE_RATINGS, AGE_RATING_LABELS } from '../constants/catalog';
+import { extractYoutubeId } from '../utils/youtube';
 
-export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
+export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categories = CATEGORIES }) {
   const dialogRef = useRef(null);
+  const scrollRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -24,7 +27,13 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [previewId, setPreviewId] = useState('');
+  const previewId = extractYoutubeId(formData.trailerUrl);
+
+  // El aviso de error está arriba del formulario: se sube para que se vea
+  const showError = (message) => {
+    setError(message);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -49,32 +58,21 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
           }
         }
       };
+      // Si el navegador cierra la ventana por su cuenta (Escape), el estado de React debe enterarse;
+      // si no, el botón "Nuevo Tráiler" deja de abrirla
+      const handleNativeClose = () => onClose();
       dialog.addEventListener('click', handleClickOutside);
-      return () => dialog.removeEventListener('click', handleClickOutside);
+      dialog.addEventListener('close', handleNativeClose);
+      return () => {
+        dialog.removeEventListener('click', handleClickOutside);
+        dialog.removeEventListener('close', handleNativeClose);
+      };
     } else {
       if (dialog.open) {
         dialog.close();
       }
     }
   }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (!formData.trailerUrl) {
-      setPreviewId('');
-      return;
-    }
-    const url = formData.trailerUrl.trim();
-    if (url.match(/^[a-zA-Z0-9_-]{11}$/)) {
-      setPreviewId(url);
-      return;
-    }
-    const match = url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (match && match[1]) {
-      setPreviewId(match[1]);
-    } else {
-      setPreviewId('');
-    }
-  }, [formData.trailerUrl]);
 
   if (!isOpen) return null;
 
@@ -91,18 +89,25 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
     setError('');
 
     if (!formData.title.trim()) {
-      setError('Por favor indica un título para la película o serie.');
+      showError('Por favor indica un título para la película o serie.');
       return;
     }
     if (!formData.trailerUrl.trim()) {
-      setError('Por favor indica la URL o ID del tráiler de YouTube.');
+      showError('Por favor indica la URL o ID del tráiler de YouTube.');
+      return;
+    }
+    if (!previewId) {
+      showError('Esa dirección no es de un vídeo de YouTube. Pega el enlace del tráiler o su ID.');
       return;
     }
 
     const payload = {
       ...formData,
-      backdropUrl: formData.backdropUrl.trim() || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1280&q=80',
-      posterUrl: formData.posterUrl.trim() || formData.backdropUrl.trim() || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
+      title: formData.title.trim(),
+      trailerUrl: formData.trailerUrl.trim(),
+      // Sin imagen propia se deja vacío: la app muestra entonces la miniatura del vídeo de YouTube
+      backdropUrl: formData.backdropUrl.trim(),
+      posterUrl: formData.posterUrl.trim() || formData.backdropUrl.trim(),
       releaseYear: parseInt(formData.releaseYear, 10) || 2024
     };
 
@@ -128,7 +133,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
         trending: true
       });
     } catch (err) {
-      setError(err.message || 'Error al guardar el nuevo tráiler.');
+      showError(err.message || 'Error al guardar el nuevo tráiler.');
     } finally {
       setLoading(false);
     }
@@ -141,7 +146,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
       aria-labelledby="addModalTitle"
       className="m-auto p-0 max-w-2xl w-[94vw] md:w-[650px] bg-[#181818] text-white rounded-xl shadow-2xl overflow-hidden backdrop:bg-black/85 backdrop:backdrop-blur-md outline-none border border-white/10"
     >
-      <div className="relative p-6 md:p-8 max-h-[90vh] overflow-y-auto no-scrollbar">
+      <div ref={scrollRef} className="relative p-6 md:p-8 max-h-[90vh] overflow-y-auto no-scrollbar">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-9 h-9 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center transition"
@@ -164,7 +169,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-950/70 border border-red-700 rounded text-red-200 text-xs flex items-center space-x-2">
+          <div role="alert" className="mb-4 p-3 bg-red-950/70 border border-red-700 rounded text-red-200 text-xs flex items-center space-x-2">
             <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -180,6 +185,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
               name="title"
               value={formData.title}
               onChange={handleChange}
+              maxLength={255}
               placeholder="Ej: Gladiator II, Stranger Things 5..."
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               required
@@ -195,6 +201,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
               name="trailerUrl"
               value={formData.trailerUrl}
               onChange={handleChange}
+              maxLength={255}
               placeholder="Ej: https://www.youtube.com/watch?v=Way9Dexny3w o Way9Dexny3w"
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               required
@@ -228,11 +235,9 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
                 onChange={handleChange}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               >
-                <option value="Tendencias Ahora">Tendencias Ahora</option>
-                <option value="Acción y Adrenalina">Acción y Adrenalina</option>
-                <option value="Ciencia Ficción y Fantasía">Ciencia Ficción y Fantasía</option>
-                <option value="Anime y Animación">Anime y Animación</option>
-                <option value="Aclamadas por la Crítica">Aclamadas por la Crítica</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
               </select>
             </div>
 
@@ -261,7 +266,8 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
               name="backdropUrl"
               value={formData.backdropUrl}
               onChange={handleChange}
-              placeholder="https://... (deja vacío para usar imagen automática)"
+              maxLength={1000}
+              placeholder="https://... (deja vacío para usar la miniatura del vídeo)"
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
             />
           </div>
@@ -276,6 +282,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
                 name="genres"
                 value={formData.genres}
                 onChange={handleChange}
+                maxLength={255}
                 placeholder="Ej: Acción, Aventura, Fantasía"
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               />
@@ -291,11 +298,9 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
                 onChange={handleChange}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               >
-                <option value="TP">TP (Para todos los públicos)</option>
-                <option value="+7">+7</option>
-                <option value="+12">+12</option>
-                <option value="+16">+16</option>
-                <option value="+18">+18</option>
+                {AGE_RATINGS.map(rating => (
+                  <option key={rating} value={rating}>{AGE_RATING_LABELS[rating] || rating}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -309,6 +314,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
               value={formData.overview}
               onChange={handleChange}
               rows={3}
+              maxLength={2000}
               placeholder="Describe brevemente de qué trata este tráiler..."
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
             />
@@ -324,6 +330,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
                 name="cast"
                 value={formData.cast}
                 onChange={handleChange}
+                maxLength={255}
                 placeholder="Ej: Pedro Pascal, Bella Ramsey..."
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               />
@@ -338,6 +345,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded }) {
                 name="director"
                 value={formData.director}
                 onChange={handleChange}
+                maxLength={255}
                 placeholder="Ej: Christopher Nolan"
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               />
