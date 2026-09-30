@@ -1,16 +1,20 @@
 import React from 'react';
 import { Heart } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useI18n } from '../i18n';
 
 const FOOTER_LINKS = [
-  { id: 'home', label: 'Catálogo de Tráilers' },
-  { id: 'tendencias', label: 'Tendencias' },
-  { id: 'anime', label: 'Anime & Animación' },
-  { id: 'scifi', label: 'Ciencia Ficción' },
-  { id: 'myList', label: 'Mi Lista' },
-  { id: 'stats', label: 'Estadísticas' },
+  { id: 'home', labelKey: 'footer.catalog' },
+  { id: 'tendencias', labelKey: 'nav.trending' },
+  { id: 'anime', labelKey: 'nav.anime' },
+  { id: 'scifi', labelKey: 'nav.scifi' },
+  { id: 'myList', labelKey: 'nav.myList' },
+  { id: 'stats', labelKey: 'nav.stats' },
 ];
 
 export default function Footer({ onNavigate }) {
+  const { t } = useI18n();
+
   return (
     <footer className="mt-20 border-t border-zinc-800/80 bg-[#101010] py-12 px-6 md:px-12 text-zinc-500 text-xs">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -20,7 +24,7 @@ export default function Footer({ onNavigate }) {
               SUKINEMA
             </span>
             <span className="text-[11px] text-zinc-400">
-              • Plataforma de Tráilers Full Stack
+              {t('footer.tagline')}
             </span>
           </div>
 
@@ -32,25 +36,26 @@ export default function Footer({ onNavigate }) {
           </div>
         </div>
 
-        <nav aria-label="Secciones" className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-zinc-400 pt-2">
+        <nav aria-label={t('footer.sections')} className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-zinc-400 pt-2">
           {FOOTER_LINKS.map(link => (
             <button
               key={link.id}
               onClick={() => onNavigate && onNavigate(link.id)}
               className="text-left hover:underline hover:text-white transition-colors"
             >
-              {link.label}
+              {t(link.labelKey)}
             </button>
           ))}
         </nav>
 
-        <div className="pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-center justify-between text-zinc-500 gap-2">
-          <p>© 2026 SUKINEMA. Inspirado en la interfaz de Netflix para explorar y disfrutar trailers cinematográficos.</p>
+        <div className="pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-center justify-between text-zinc-500 gap-3">
+          <p>{t('footer.copyright')}</p>
           <p className="flex items-center space-x-1">
-            <span>Hecho con</span>
+            <span>{t('footer.madeWith')}</span>
             <Heart size={13} className="text-red-600 fill-current" />
-            <span>para cineastas y amantes del cine</span>
+            <span>{t('footer.forCinephiles')}</span>
           </p>
+          <LanguageSwitcher />
         </div>
       </div>
     </footer>

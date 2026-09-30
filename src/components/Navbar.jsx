@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, X, ChevronDown, Settings, Menu, LogOut, UserRound } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useI18n } from '../i18n';
 
 const NAV_ITEMS = [
-  { id: 'home', label: 'Inicio' },
-  { id: 'tendencias', label: 'Tendencias' },
-  { id: 'anime', label: 'Anime & Animación' },
-  { id: 'scifi', label: 'Ciencia Ficción' },
-  { id: 'myList', label: 'Mi Lista' },
-  { id: 'stats', label: 'Estadísticas' },
+  { id: 'home', labelKey: 'nav.home' },
+  { id: 'tendencias', labelKey: 'nav.trending' },
+  { id: 'anime', labelKey: 'nav.anime' },
+  { id: 'scifi', labelKey: 'nav.scifi' },
+  { id: 'myList', labelKey: 'nav.myList' },
+  { id: 'stats', labelKey: 'nav.stats' },
 ];
 
 export default function Navbar({
@@ -25,6 +27,7 @@ export default function Navbar({
   onOpenAccount,
   onLogout
 }) {
+  const { t } = useI18n();
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,7 +130,7 @@ export default function Navbar({
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="xl:hidden text-gray-200 hover:text-white focus:outline-none"
-          aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-label={t(mobileMenuOpen ? 'nav.closeMenu' : 'nav.openMenu')}
           aria-expanded={mobileMenuOpen}
           aria-controls="mobileNav"
         >
@@ -143,7 +146,7 @@ export default function Navbar({
             SUKINEMA
           </span>
           <span className="hidden sm:inline-block text-[10px] uppercase font-bold tracking-widest bg-[#E50914] text-white px-1.5 py-0.5 rounded ml-2">
-            TRAILERS
+            {t('nav.badge')}
           </span>
         </button>
 
@@ -154,7 +157,7 @@ export default function Navbar({
                 onClick={() => goToTab(item.id)}
                 className={`hover:text-white transition-colors flex items-center space-x-1 whitespace-nowrap ${isActiveTab(item.id) ? 'text-white font-bold' : ''}`}
               >
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
                 {item.id === 'myList' && myListBadge}
               </button>
             </li>
@@ -165,11 +168,11 @@ export default function Navbar({
       <div className="flex items-center gap-3 md:gap-5 text-white">
         <div
           className="hidden sm:flex items-center space-x-1.5 text-xs px-2.5 py-1 rounded-full bg-black/40 border border-white/10 whitespace-nowrap"
-          title={backendConnected ? "Conectado al backend Spring Boot" : "Usando catálogo inicial"}
+          title={t(backendConnected ? 'nav.connectedTitle' : 'nav.localTitle')}
         >
           <span className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-400'}`}></span>
           <span className="hidden 2xl:inline text-gray-300 font-medium">
-            {backendConnected ? 'Spring Boot 3 API' : 'Catálogo Local'}
+            {t(backendConnected ? 'nav.api' : 'nav.localCatalog')}
           </span>
         </div>
 
@@ -177,11 +180,11 @@ export default function Navbar({
           <button
             onClick={onOpenAddModal}
             className={`${searchOpen ? 'hidden sm:flex' : 'flex'} items-center space-x-1.5 bg-[#E50914] hover:bg-[#b80710] text-white text-xs md:text-sm font-semibold px-3 py-1.5 rounded transition-all transform active:scale-95 shadow-md shadow-red-950/40 whitespace-nowrap`}
-            title="Agregar un nuevo tráiler con video de YouTube"
-            aria-label="Nuevo Tráiler"
+            title={t('nav.addTitle')}
+            aria-label={t('nav.newTrailer')}
           >
             <Plus size={16} strokeWidth={3} />
-            <span className="hidden sm:inline">Nuevo Tráiler</span>
+            <span className="hidden sm:inline">{t('nav.newTrailer')}</span>
           </button>
         )}
 
@@ -195,7 +198,7 @@ export default function Navbar({
               type="button"
               onClick={() => setSearchOpen(!searchOpen)}
               className="text-gray-200 hover:text-white focus:outline-none"
-              aria-label="Buscar"
+              aria-label={t('nav.search')}
             >
               <Search size={19} />
             </button>
@@ -204,7 +207,7 @@ export default function Navbar({
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Títulos, actores, directores..."
+                placeholder={t('nav.searchPlaceholder')}
                 className="bg-transparent text-sm text-white focus:outline-none ml-2 w-full placeholder-gray-400"
                 autoFocus
               />
@@ -227,7 +230,7 @@ export default function Navbar({
             className="flex items-center space-x-1 focus:outline-none group"
             aria-haspopup="menu"
             aria-expanded={profileMenuOpen}
-            aria-label={`Perfil: ${activeProfile?.name || 'sin seleccionar'}`}
+            aria-label={t('nav.profile', { name: activeProfile?.name || t('nav.noProfile') })}
           >
             <div className={`w-8 h-8 rounded bg-gradient-to-br ${activeProfile?.color || 'from-red-600 to-rose-700'} flex items-center justify-center text-white font-bold text-sm shadow`}>
               {activeProfile?.avatar || '🍿'}
@@ -258,7 +261,7 @@ export default function Navbar({
                   <span className="truncate flex-1">{profile.name}</span>
                   {profile.isKid && (
                     <span className="text-[9px] uppercase font-bold tracking-wider bg-emerald-600 text-white px-1 py-0.5 rounded">
-                      Infantil
+                      {t('common.kids')}
                     </span>
                   )}
                 </button>
@@ -273,7 +276,7 @@ export default function Navbar({
                   className="w-full flex items-center space-x-3 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 transition text-left"
                 >
                   <Settings size={16} className="flex-shrink-0" />
-                  <span>Administrar perfiles</span>
+                  <span>{t('nav.manageProfiles')}</span>
                 </button>
                 {onOpenAccount && (
                   <button
@@ -285,7 +288,7 @@ export default function Navbar({
                     className="w-full flex items-center space-x-3 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 transition text-left"
                   >
                     <UserRound size={16} className="flex-shrink-0" />
-                    <span>Mi cuenta</span>
+                    <span>{t('nav.myAccount')}</span>
                   </button>
                 )}
                 {onLogout && (
@@ -298,9 +301,13 @@ export default function Navbar({
                     className="w-full flex items-center space-x-3 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 transition text-left"
                   >
                     <LogOut size={16} className="flex-shrink-0" />
-                    <span>Cerrar sesión</span>
+                    <span>{t('nav.logout')}</span>
                   </button>
                 )}
+              </div>
+              <div className="px-3 pt-2 mt-2 border-t border-white/15 flex items-center justify-between">
+                <span className="text-[11px] text-gray-500">{t('common.language')}</span>
+                <LanguageSwitcher />
               </div>
               {accountLabel && (
                 <p className="px-3 pt-2 mt-2 border-t border-white/15 text-[11px] text-gray-500 truncate" title={accountLabel}>
@@ -325,7 +332,7 @@ export default function Navbar({
                   className={`w-full flex items-center justify-between py-3 hover:text-white transition-colors text-left ${isActiveTab(item.id) ? 'text-white font-bold' : ''}`}
                   aria-current={isActiveTab(item.id) ? 'page' : undefined}
                 >
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                   {item.id === 'myList' && myListBadge}
                 </button>
               </li>
@@ -333,7 +340,7 @@ export default function Navbar({
           </ul>
           <div className="px-4 py-3 border-t border-white/10 flex items-center space-x-1.5 text-xs text-gray-400">
             <span className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-400'}`}></span>
-            <span>{backendConnected ? 'Spring Boot 3 API' : 'Catálogo Local'}</span>
+            <span>{t(backendConnected ? 'nav.api' : 'nav.localCatalog')}</span>
           </div>
         </div>
       )}

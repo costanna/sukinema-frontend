@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useI18n } from '../i18n';
 
 // Tras unos segundos explica la espera: en el plan gratuito de Render el backend
 // se duerme sin uso y la primera petición tarda mientras arranca.
 const SLOW_NOTICE_MS = 4000;
 
 export default function LoadingScreen() {
+  const { t } = useI18n();
   const [isSlow, setIsSlow] = useState(false);
 
   useEffect(() => {
@@ -18,10 +20,10 @@ export default function LoadingScreen() {
         SUKINEMA
       </span>
       <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-      <p className="mt-6 text-sm text-gray-400">Cargando…</p>
+      <p className="mt-6 text-sm text-gray-400">{t('common.loading')}</p>
       {isSlow && (
         <p className="mt-2 text-xs text-gray-500 max-w-xs">
-          El servidor se está despertando. La primera visita puede tardar hasta un minuto.
+          {t('common.serverWaking')}
         </p>
       )}
     </div>

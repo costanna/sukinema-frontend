@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Play, Plus, Check, ThumbsUp, Volume2, Share2, Sparkles, Pencil, Trash2 } from 'lucide-react';
 import TrailerImage from './TrailerImage';
+import { useI18n } from '../i18n';
 
 export default function TrailerModal({
   movie,
@@ -15,9 +16,11 @@ export default function TrailerModal({
   onEditMovie,
   onDeleteMovie
 }) {
+  const { t } = useI18n();
   const dialogRef = useRef(null);
   const scrollRef = useRef(null);
-  const [shareLabel, setShareLabel] = useState('Compartir');
+  // 'idle' | 'copied' | 'failed'
+  const [shareState, setShareState] = useState('idle');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -86,11 +89,11 @@ export default function TrailerModal({
     const url = movie.trailerUrl || window.location.href;
     try {
       await navigator.clipboard.writeText(url);
-      setShareLabel('¡Copiado!');
+      setShareState('copied');
     } catch {
-      setShareLabel('No se pudo copiar');
+      setShareState('failed');
     }
-    setTimeout(() => setShareLabel('Compartir'), 2000);
+    setTimeout(() => setShareState('idle'), 2000);
   };
 
   return (
@@ -104,7 +107,7 @@ export default function TrailerModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-40 w-10 h-10 rounded-full bg-[#181818]/80 hover:bg-[#282828] text-white flex items-center justify-center border border-white/20 transition backdrop-blur-sm"
-          aria-label="Cerrar ventana de tráiler"
+          aria-label={t('trailer.close')}
         >
           <X size={20} />
         </button>
@@ -113,14 +116,14 @@ export default function TrailerModal({
           {youtubeId ? (
             <iframe
               src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1`}
-              title={`Tráiler de ${movie.title}`}
+              title={t('trailer.iframeTitle', { title: movie.title })}
               className="w-full h-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-gray-400">
-              <p>No se pudo cargar el reproductor de video</p>
+              <p>{t('trailer.noPlayer')}</p>
             </div>
           )}
         </div>
@@ -133,16 +136,16 @@ export default function TrailerModal({
                 className="flex items-center space-x-2 border border-gray-400 hover:border-white px-4 py-2 rounded-md font-semibold text-sm transition bg-white/5 hover:bg-white/10"
               >
                 {isSaved ? <Check size={18} className="text-green-400" /> : <Plus size={18} />}
-                <span>{isSaved ? 'En Mi Lista' : 'Agregar a Mi Lista'}</span>
+                <span>{t(isSaved ? 'trailer.inList' : 'trailer.addToList')}</span>
               </button>
 
               <button
                 onClick={handleShare}
                 className="flex items-center space-x-1.5 border border-gray-500 hover:border-white px-3.5 py-2 rounded-md text-sm text-gray-300 hover:text-white transition bg-white/5"
-                title="Copiar enlace del tráiler"
+                title={t('trailer.shareTitle')}
               >
                 <Share2 size={16} />
-                <span>{shareLabel}</span>
+                <span>{t(shareState === 'copied' ? 'common.copied' : shareState === 'failed' ? 'common.copyFailed' : 'trailer.share')}</span>
               </button>
 
               <button
@@ -150,8 +153,8 @@ export default function TrailerModal({
                 className={`flex items-center space-x-1.5 px-3 py-2 rounded-full border transition bg-white/5 text-sm ${
                   isLiked ? 'border-blue-400 text-blue-300' : 'border-gray-500 hover:border-white text-gray-300 hover:text-white'
                 }`}
-                title={isLiked ? 'Te gusta este tráiler' : 'Me gusta'}
-                aria-label="Me gusta"
+                title={t(isLiked ? 'card.liked' : 'card.like')}
+                aria-label={t('card.like')}
                 aria-pressed={isLiked}
               >
                 <ThumbsUp size={16} className={isLiked ? 'fill-current' : ''} />
@@ -162,8 +165,8 @@ export default function TrailerModal({
                 <button
                   onClick={() => onEditMovie(movie)}
                   className="p-2 rounded-full border border-gray-500 hover:border-white text-gray-300 hover:text-white transition bg-white/5"
-                  title="Editar tráiler"
-                  aria-label="Editar tráiler"
+                  title={t('trailer.edit')}
+                  aria-label={t('trailer.edit')}
                 >
                   <Pencil size={16} />
                 </button>
@@ -176,21 +179,21 @@ export default function TrailerModal({
                       onClick={() => onDeleteMovie(movie)}
                       className="px-3 py-2 rounded-md bg-[#E50914] hover:bg-red-700 text-white font-semibold transition"
                     >
-                      Sí, eliminar
+                      {t('trailer.confirmDelete')}
                     </button>
                     <button
                       onClick={() => setConfirmDelete(false)}
                       className="px-3 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-gray-300 font-semibold transition"
                     >
-                      Cancelar
+                      {t('common.cancel')}
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setConfirmDelete(true)}
                     className="p-2 rounded-full border border-gray-500 hover:border-red-500 text-gray-300 hover:text-red-400 transition bg-white/5"
-                    title="Eliminar tráiler"
-                    aria-label="Eliminar tráiler"
+                    title={t('trailer.delete')}
+                    aria-label={t('trailer.delete')}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -200,7 +203,7 @@ export default function TrailerModal({
 
             <div className="flex items-center space-x-2 text-xs text-gray-400">
               <span className="bg-red-950/80 text-red-400 border border-red-800/60 font-bold px-2 py-0.5 rounded">
-                TRÁILER OFICIAL
+                {t('trailer.official')}
               </span>
               <span className="border border-gray-600 px-1.5 py-0.5 rounded text-gray-300 font-bold">
                 HD 1080p
@@ -212,7 +215,7 @@ export default function TrailerModal({
             <div className="md:col-span-2 space-y-4">
               <div className="flex flex-wrap items-center gap-2.5 text-sm font-semibold">
                 <span className="text-green-400 font-bold">
-                  {movie.matchScore || '98% de coincidencia'}
+                  {movie.matchScore || t('content.defaultMatch')}
                 </span>
                 <span className="text-gray-400 font-normal">
                   {movie.releaseYear || '2024'}
@@ -221,7 +224,7 @@ export default function TrailerModal({
                   {movie.ageRating || '+16'}
                 </span>
                 <span className="text-gray-300 text-xs">
-                  {movie.duration || 'Tráiler 2m 45s'}
+                  {movie.duration || t('content.defaultDuration')}
                 </span>
                 <span className="border border-gray-600 text-[10px] text-gray-400 px-1 py-0.2 rounded font-bold">
                   Ultra HD 4K
@@ -239,25 +242,25 @@ export default function TrailerModal({
             <div className="space-y-3 text-xs md:text-sm text-gray-400 border-t md:border-t-0 md:border-l border-zinc-800 pt-4 md:pt-0 md:pl-6">
               {movie.cast && (
                 <div>
-                  <span className="text-gray-500">Reparto: </span>
+                  <span className="text-gray-500">{t('trailer.cast')} </span>
                   <span className="text-gray-200">{movie.cast}</span>
                 </div>
               )}
               {movie.director && (
                 <div>
-                  <span className="text-gray-500">Director/Creador: </span>
+                  <span className="text-gray-500">{t('trailer.director')} </span>
                   <span className="text-gray-200">{movie.director}</span>
                 </div>
               )}
               {movie.genres && (
                 <div>
-                  <span className="text-gray-500">Géneros: </span>
+                  <span className="text-gray-500">{t('trailer.genres')} </span>
                   <span className="text-gray-200">{movie.genres}</span>
                 </div>
               )}
               {movie.category && (
                 <div>
-                  <span className="text-gray-500">Categoría: </span>
+                  <span className="text-gray-500">{t('trailer.category')} </span>
                   <span className="text-gray-200">{movie.category}</span>
                 </div>
               )}
@@ -268,7 +271,7 @@ export default function TrailerModal({
             <div className="pt-6 border-t border-zinc-800 space-y-4">
               <h3 className="text-lg md:text-xl font-bold text-white flex items-center space-x-2">
                 <Sparkles size={18} className="text-[#E50914]" />
-                <span>Más tráilers y títulos similares</span>
+                <span>{t('trailer.related')}</span>
               </h3>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
@@ -285,7 +288,7 @@ export default function TrailerModal({
                       }
                     }}
                     className="group bg-[#242424] rounded overflow-hidden cursor-pointer hover:bg-[#303030] transition border border-white/5 hover:border-white/20"
-                    aria-label={`Ver tráiler de ${rel.title}`}
+                    aria-label={t('trailer.watchRelated', { title: rel.title })}
                   >
                     <div className="relative aspect-video w-full overflow-hidden bg-zinc-900">
                       <TrailerImage
@@ -299,7 +302,7 @@ export default function TrailerModal({
                         </div>
                       </div>
                       <span className="absolute bottom-1 right-1 text-[10px] bg-black/80 px-1 py-0.2 rounded text-gray-300">
-                        {rel.duration || 'Tráiler'}
+                        {rel.duration || t('content.defaultDuration')}
                       </span>
                     </div>
 

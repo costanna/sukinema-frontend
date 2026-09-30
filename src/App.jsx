@@ -19,6 +19,8 @@ import { AuthAPI, MovieAPI, ProfileAPI, Session, FALLBACK_PROFILES } from './ser
 import { FALLBACK_MOVIES, getFallbackCategories } from './data/fallbackData';
 import { CATEGORIES } from './constants/catalog';
 import { extractYoutubeId } from './utils/youtube';
+import { useI18n } from './i18n';
+import { localizeMovie, localizeTerm, rawMovie, canonicalTerms } from './i18n/content';
 
 const ACTIVE_PROFILE_KEY = 'sukinema_active_profile';
 // Modo demo: la lista y los likes viven en el navegador, con claves propias para no mezclarse con los de una cuenta
@@ -27,9 +29,6 @@ const likesKey = (profileId) => `sukinema_demo_likes_${profileId}`;
 // Claves que usaba el navegador antes de que la lista se guardara en el servidor
 const legacyMyListKey = (profileId) => `sukinema_my_list_${profileId}`;
 const legacyLikesKey = (profileId) => `sukinema_likes_${profileId}`;
-
-// Espera tras la última tecla antes de consultar al servidor
-const SEARCH_DEBOUNCE_MS = 250;
 
 const readIdSet = (key) => {
   try {
@@ -71,7 +70,13 @@ const isKidSafe = (movie) => {
   return Number.isNaN(age) || age <= 12;
 };
 
+const SEARCHED_FIELDS = ['title', 'genres', 'cast', 'director', 'category', 'overview'];
+const matchesSearch = (movie, term) =>
+  SEARCHED_FIELDS.some(field => movie[field] && String(movie[field]).toLowerCase().includes(term));
+
 export default function App() {
+  const { t, lang } = useI18n();
+
   // Sesión: cuenta con la que se ha entrado, o modo demo si el servidor no responde
   const [account, setAccount] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
@@ -81,6 +86,7 @@ export default function App() {
   const [pendingRecoveryCode, setPendingRecoveryCode] = useState(null);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
+  // El catálogo se guarda tal como llega del servidor; se traduce al pintarlo (ver `display`)
   const [featuredMovie, setFeaturedMovie] = useState(null);
   const [categories, setCategories] = useState({});
   const [allMovies, setAllMovies] = useState([]);
@@ -96,10 +102,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const searchSeq = useRef(0);
-  const searchTimer = useRef(null);
 
   const [profiles, setProfiles] = useState([]);
   const [profilesLoaded, setProfilesLoaded] = useState(false);
@@ -109,6 +111,13 @@ export default function App() {
   // Mi Lista y likes de cada perfil: con cuenta se guardan en el servidor; en modo demo, en el navegador
   const [myListIds, setMyListIds] = useState(new Set());
   const [likedIds, setLikedIds] = useState(new Set());
+
+  // Los manejadores creados en el primer render (p. ej. el de sesión caducada) traducen con el idioma actual
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  // Tráiler con sus textos en el idioma activo, para mostrarlo
+  const display = (movie) => localizeMovie(movie, lang);
 
   useEffect(() => {
     if (!activeProfile) return;
@@ -147,7 +156,7 @@ export default function App() {
           setLikedIds(new Set(library.likes));
         }
       } catch (err) {
-        if (!cancelled && err.status !== 401) showToast('No se pudo cargar tu lista', 'error');
+        if (!cancelled && err.status !== 401) showToast(tRef.current('toast.listLoadError'), 'error');
       }
     })();
     return () => { cancelled = true; };
@@ -172,12 +181,12 @@ export default function App() {
         else await ProfileAPI.addToMyList(profileId, movie.id);
       } catch (err) {
         setMyListIds(prev => withToggled(prev, movie.id, wasSaved));
-        if (err.status !== 401) showToast(err.message || 'No se pudo actualizar Mi Lista', 'error');
+        if (err.status !== 401) showToast(err.message || t('toast.listUpdateError'), 'error');
         return;
       }
     }
     showToast(
-      wasSaved ? `"${movie.title}" eliminado de Mi Lista` : `"${movie.title}" añadido a Mi Lista ✓`,
+      t(wasSaved ? 'toast.removedFromList' : 'toast.addedToList', { title: movie.title }),
       wasSaved ? 'info' : 'success'
     );
   };
@@ -226,7 +235,7 @@ export default function App() {
       restoreActiveProfile(list);
     } catch (err) {
       setProfiles([]);
-      if (err.status !== 401) showToast('No se pudieron cargar los perfiles', 'error');
+      if (err.status !== 401) showToast(tRef.current('toast.profilesLoadError'), 'error');
     } finally {
       setProfilesLoaded(true);
     }
@@ -244,8 +253,6 @@ export default function App() {
   const clearSessionState = () => {
     Session.clear();
     removeStored(ACTIVE_PROFILE_KEY);
-    clearTimeout(searchTimer.current);
-    searchSeq.current++;
     setAccount(null);
     setDemoMode(false);
     setActiveProfile(null);
@@ -260,14 +267,12 @@ export default function App() {
     setSelectedMovie(null);
     setActiveTab('home');
     setSearchQuery('');
-    setSearchResults([]);
-    setSearching(false);
   };
 
   useEffect(() => {
     Session.onExpired(() => {
       clearSessionState();
-      showToast('Tu sesión ha caducado. Vuelve a iniciar sesión.', 'warning');
+      showToast(tRef.current('toast.sessionExpired'), 'warning');
     });
 
     if (Session.hasToken()) {
@@ -291,27 +296,27 @@ export default function App() {
   const handleLogin = async (email, password) => {
     const sessionAccount = await AuthAPI.login(email, password);
     startSession(sessionAccount);
-    showToast(`Hola de nuevo, ${sessionAccount.name}`, 'success');
+    showToast(t('toast.welcomeBack', { name: sessionAccount.name }), 'success');
   };
 
   const handleRegister = async (name, email, password) => {
     const { account: sessionAccount, recoveryCode } = await AuthAPI.register(name, email, password);
     setPendingRecoveryCode(recoveryCode);
     startSession(sessionAccount);
-    showToast(`Cuenta creada. ¡Te damos la bienvenida, ${sessionAccount.name}!`, 'success');
+    showToast(t('toast.accountCreated', { name: sessionAccount.name }), 'success');
   };
 
   const handleRecover = async (email, recoveryCode, newPassword) => {
     const { account: sessionAccount, recoveryCode: newRecoveryCode } = await AuthAPI.recover(email, recoveryCode, newPassword);
     setPendingRecoveryCode(newRecoveryCode);
     startSession(sessionAccount);
-    showToast('Contraseña restablecida', 'success');
+    showToast(t('toast.passwordReset'), 'success');
   };
 
   // Los errores suben al formulario de "Mi cuenta", que muestra el motivo
   const handleChangePassword = async (currentPassword, newPassword) => {
     setAccount(await AuthAPI.changePassword(currentPassword, newPassword));
-    showToast('Contraseña cambiada ✓', 'success');
+    showToast(t('toast.passwordChanged'), 'success');
   };
 
   const handleEnterDemo = () => {
@@ -321,19 +326,19 @@ export default function App() {
     setProfiles(FALLBACK_PROFILES);
     restoreActiveProfile(FALLBACK_PROFILES);
     setProfilesLoaded(true);
-    showToast('Modo demo: los cambios no se guardan', 'info');
+    showToast(t('toast.demo'), 'info');
   };
 
   const handleLogout = () => {
     const wasDemo = demoMode;
     clearSessionState();
-    showToast(wasDemo ? 'Has salido del modo demo' : 'Sesión cerrada', 'info');
+    showToast(t(wasDemo ? 'toast.leftDemo' : 'toast.loggedOut'), 'info');
   };
 
   // Profile handlers
   const handleSelectProfile = (profile) => {
     if (profile.id !== activeProfile?.id) {
-      showToast(`Viendo como ${profile.name} ${profile.avatar}`, 'info');
+      showToast(t('toast.viewingAs', { name: profile.name, avatar: profile.avatar }), 'info');
     }
     setActiveProfile(profile);
     setIsProfileSelectorOpen(false);
@@ -356,7 +361,7 @@ export default function App() {
       writeIdSet(likesKey(created.id), new Set());
     }
     setProfiles(prev => [...prev, created]);
-    showToast(`Perfil "${created.name}" creado ✓`, 'success');
+    showToast(t('toast.profileCreated', { name: created.name }), 'success');
   };
 
   const handleUpdateProfile = async (id, profileData) => {
@@ -367,7 +372,7 @@ export default function App() {
     if (activeProfile?.id === id) {
       setActiveProfile(updated);
     }
-    showToast(`Perfil "${updated.name}" actualizado ✓`, 'success');
+    showToast(t('toast.profileUpdated', { name: updated.name }), 'success');
   };
 
   const handleDeleteProfile = async (profile) => {
@@ -375,7 +380,7 @@ export default function App() {
       try {
         await ProfileAPI.delete(profile.id);
       } catch (err) {
-        showToast(err.message || 'No se pudo eliminar el perfil', 'error');
+        showToast(err.message || t('toast.profileDeleteError'), 'error');
         return;
       }
     }
@@ -385,7 +390,7 @@ export default function App() {
       removeStored(ACTIVE_PROFILE_KEY);
       setActiveProfile(null);
     }
-    showToast(`Perfil "${profile.name}" eliminado`, 'info');
+    showToast(t('toast.profileDeleted', { name: profile.name }), 'info');
   };
 
   const changeTab = (tab) => {
@@ -398,46 +403,14 @@ export default function App() {
     changeTab('category');
   };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-    clearTimeout(searchTimer.current);
-    // Cada búsqueda lleva un número: una respuesta que llega tarde no pisa a una más reciente
-    const seq = ++searchSeq.current;
-    const term = query.trim();
-    if (!term) {
-      setSearchResults([]);
-      setSearching(false);
-      return;
-    }
-    if (!backendConnected) {
-      const lower = term.toLowerCase();
-      setSearchResults(allMovies.filter(m =>
-        m.title.toLowerCase().includes(lower) ||
-        (m.genres && m.genres.toLowerCase().includes(lower)) ||
-        (m.cast && m.cast.toLowerCase().includes(lower)) ||
-        (m.director && m.director.toLowerCase().includes(lower)) ||
-        (m.category && m.category.toLowerCase().includes(lower))
-      ));
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
-    searchTimer.current = setTimeout(async () => {
-      const results = await MovieAPI.search(term);
-      if (seq === searchSeq.current) {
-        setSearchResults(results);
-        setSearching(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-  };
-
+  // Los componentes reciben tráilers traducidos; en el estado se guarda siempre el original
   const handlePlayTrailer = (movie) => {
-    setSelectedMovie(movie);
+    setSelectedMovie(rawMovie(movie));
     setIsTrailerModalOpen(true);
   };
 
   const handleOpenDetails = (movie) => {
-    setSelectedMovie(movie);
+    setSelectedMovie(rawMovie(movie));
     setIsTrailerModalOpen(true);
   };
 
@@ -450,7 +423,7 @@ export default function App() {
     if (backendConnected) {
       const created = await MovieAPI.create(newMovieData);
       await loadData();
-      showToast(`"${created.title}" añadido al catálogo 🎬`, 'success');
+      showToast(t('toast.addedToCatalog', { title: created.title }), 'success');
       setSelectedMovie(created);
       setIsTrailerModalOpen(true);
     } else {
@@ -465,15 +438,15 @@ export default function App() {
         const cat = mockNew.category || 'Tendencias Ahora';
         return { ...prev, [cat]: [mockNew, ...(prev[cat] || [])] };
       });
-      showToast(`"${mockNew.title}" añadido localmente`, 'info');
+      showToast(t('toast.addedLocally', { title: mockNew.title }), 'info');
       setSelectedMovie(mockNew);
       setIsTrailerModalOpen(true);
     }
   };
 
-  // Edit handlers
+  // Edit handlers: se edita el texto guardado, no su traducción
   const handleOpenEdit = (movie) => {
-    setMovieToEdit(movie);
+    setMovieToEdit(rawMovie(movie));
     setIsTrailerModalOpen(false);
     setTimeout(() => setIsEditModalOpen(true), 150);
   };
@@ -489,7 +462,6 @@ export default function App() {
       }
       return newCats;
     });
-    setSearchResults(replace);
     setFeaturedMovie(prev => prev?.id === updated.id ? updated : prev);
     setSelectedMovie(prev => prev?.id === updated.id ? updated : prev);
   };
@@ -498,37 +470,38 @@ export default function App() {
     if (backendConnected) {
       const updated = await MovieAPI.update(id, updatedData);
       await loadData();
-      showToast(`"${updated.title}" actualizado correctamente ✓`, 'success');
+      showToast(t('toast.updated', { title: updated.title }), 'success');
       setSelectedMovie(updated);
     } else {
       const updated = { ...movieToEdit, ...updatedData, youtubeId: extractYoutubeId(updatedData.trailerUrl) };
       applyMovieUpdate(updated);
-      showToast(`"${updated.title}" actualizado localmente`, 'info');
+      showToast(t('toast.updatedLocally', { title: updated.title }), 'info');
       setSelectedMovie(updated);
     }
   };
 
   // Like handler: un like por perfil; pulsar de nuevo lo quita
   const handleLikeMovie = async (movie) => {
-    const wasLiked = likedIds.has(movie.id);
+    const source = rawMovie(movie);
+    const wasLiked = likedIds.has(source.id);
     const profileId = activeProfile.id;
     let updated;
     if (demoMode) {
-      updated = { ...movie, likes: Math.max(0, (movie.likes || 0) + (wasLiked ? -1 : 1)) };
-      writeIdSet(likesKey(profileId), withToggled(likedIds, movie.id, !wasLiked));
+      updated = { ...source, likes: Math.max(0, (source.likes || 0) + (wasLiked ? -1 : 1)) };
+      writeIdSet(likesKey(profileId), withToggled(likedIds, source.id, !wasLiked));
     } else {
       try {
         updated = wasLiked
-          ? await ProfileAPI.unlike(profileId, movie.id)
-          : await ProfileAPI.like(profileId, movie.id);
+          ? await ProfileAPI.unlike(profileId, source.id)
+          : await ProfileAPI.like(profileId, source.id);
       } catch (err) {
-        if (err.status !== 401) showToast(err.message || 'No se pudo registrar el like', 'error');
+        if (err.status !== 401) showToast(err.message || t('toast.likeError'), 'error');
         return;
       }
     }
     applyMovieUpdate(updated);
-    setLikedIds(prev => withToggled(prev, movie.id, !wasLiked));
-    showToast(wasLiked ? `Ya no te gusta "${movie.title}"` : `Te gusta "${movie.title}" 👍`, wasLiked ? 'info' : 'success');
+    setLikedIds(prev => withToggled(prev, source.id, !wasLiked));
+    showToast(t(wasLiked ? 'toast.unliked' : 'toast.liked', { title: movie.title }), wasLiked ? 'info' : 'success');
   };
 
   // Delete handler
@@ -538,13 +511,12 @@ export default function App() {
       try {
         await MovieAPI.delete(deletedId);
       } catch (err) {
-        showToast(err.message || 'Error al eliminar el tráiler', 'error');
+        showToast(err.message || t('toast.deleteError'), 'error');
         return;
       }
     }
     setIsTrailerModalOpen(false);
     setAllMovies(prev => prev.filter(m => m.id !== deletedId));
-    setSearchResults(prev => prev.filter(m => m.id !== deletedId));
     setCategories(prev => {
       const newCats = {};
       for (const [cat, list] of Object.entries(prev)) {
@@ -558,7 +530,7 @@ export default function App() {
     if (featuredMovie?.id === deletedId) {
       setFeaturedMovie(allMovies.find(m => m.id !== deletedId) || null);
     }
-    showToast(`"${movie.title}" eliminado del catálogo`, 'info');
+    showToast(t('toast.deleted', { title: movie.title }), 'info');
   };
 
   // Lo que ve el perfil activo: el infantil solo recibe títulos aptos
@@ -566,9 +538,16 @@ export default function App() {
   // El catálogo lo gestiona la cuenta administradora (en modo demo, los cambios son solo locales)
   const canManage = !isKid && (demoMode || account?.role === 'ADMIN');
 
-  const visibleMovies = useMemo(
+  // Tráilers visibles tal como están guardados: sobre ellos se filtra
+  const sourceMovies = useMemo(
     () => (isKid ? allMovies.filter(isKidSafe) : allMovies),
     [allMovies, isKid]
+  );
+
+  // Y en el idioma activo: son los que se pintan
+  const visibleMovies = useMemo(
+    () => sourceMovies.map(movie => localizeMovie(movie, lang)),
+    [sourceMovies, lang]
   );
 
   const visibleCategories = useMemo(() => {
@@ -587,41 +566,53 @@ export default function App() {
     [allMovies]
   );
 
-  const visibleFeatured = isKid && !(featuredMovie && isKidSafe(featuredMovie))
-    ? (visibleMovies[0] || null)
+  const sourceFeatured = isKid && !(featuredMovie && isKidSafe(featuredMovie))
+    ? (sourceMovies[0] || null)
     : featuredMovie;
+  const visibleFeatured = sourceFeatured ? display(sourceFeatured) : null;
 
-  const visibleSearchResults = isKid ? searchResults.filter(isKidSafe) : searchResults;
+  // La búsqueda mira el texto traducido y también el original
+  const searchTerm = searchQuery.trim().toLowerCase();
+  const visibleSearchResults = useMemo(
+    () => (searchTerm
+      ? visibleMovies.filter(movie => matchesSearch(movie, searchTerm) || matchesSearch(rawMovie(movie), searchTerm))
+      : []),
+    [visibleMovies, searchTerm]
+  );
 
   const myListCount = visibleMovies.filter(m => myListIds.has(m.id)).length;
 
+  // Los filtros de sección comparan en castellano, se haya escrito el tráiler en el idioma que sea
   const getTabFilteredMovies = () => {
+    const bySection = (predicate) => sourceMovies.filter(m => predicate(m, canonicalTerms(m))).map(display);
     if (activeTab === 'tendencias') {
-      return visibleMovies.filter(m => m.trending || m.category?.includes('Tendencias'));
+      return bySection((m, { category }) => m.trending || category.includes('Tendencias'));
     }
     if (activeTab === 'anime') {
-      return visibleMovies.filter(m => m.category?.includes('Anime') || m.genres?.includes('Animación') || m.genres?.includes('Anime'));
+      return bySection((m, { category, genres }) => category.includes('Anime') || genres.includes('Animación') || genres.includes('Anime'));
     }
     if (activeTab === 'scifi') {
-      return visibleMovies.filter(m => m.category?.includes('Ciencia Ficción') || m.genres?.includes('Ciencia ficción'));
+      return bySection((m, { category, genres }) => category.includes('Ciencia Ficción') || genres.includes('Ciencia ficción'));
     }
     if (activeTab === 'myList') {
       return visibleMovies.filter(m => myListIds.has(m.id));
     }
     if (activeTab === 'category') {
-      return visibleCategories[selectedCategory] || [];
+      return (visibleCategories[selectedCategory] || []).map(display);
     }
     return [];
   };
 
   const TAB_LABELS = {
-    tendencias: '🔥 Tendencias en Tráilers',
-    anime: '⚡ Anime & Animación',
-    scifi: '🚀 Ciencia Ficción & Fantasía',
-    myList: '📌 Mi Lista de Tráilers',
-    stats: '📊 Estadísticas',
-    category: selectedCategory,
+    tendencias: t('app.tab.trending'),
+    anime: t('app.tab.anime'),
+    scifi: t('app.tab.scifi'),
+    myList: t('app.tab.myList'),
+    stats: t('app.tab.stats'),
+    category: localizeTerm(selectedCategory, lang),
   };
+
+  const accountLabel = demoMode ? t('app.demoMode') : account?.email;
 
   // Pantallas previas al catálogo. La key mantiene vivo el ToastContainer al pasar de una a otra.
   let gate = null;
@@ -662,7 +653,7 @@ export default function App() {
       onDelete={handleDeleteProfile}
       onClose={activeProfile ? () => setIsProfileSelectorOpen(false) : undefined}
       onLogout={handleLogout}
-      accountLabel={demoMode ? 'Modo demo' : account?.email}
+      accountLabel={accountLabel}
     />
   );
 
@@ -677,12 +668,13 @@ export default function App() {
   }
 
   const tabMovies = getTabFilteredMovies();
+  const shownMovie = selectedMovie ? display(selectedMovie) : null;
   const isAnyOverlayOpen = isTrailerModalOpen || isAddModalOpen || isEditModalOpen || isProfileSelectorOpen || isAccountModalOpen;
 
   return (
     <div className="min-h-screen bg-[#141414] text-white flex flex-col selection:bg-[#E50914] selection:text-white">
       <Navbar
-        onSearch={handleSearch}
+        onSearch={setSearchQuery}
         onOpenAddModal={canManage ? () => setIsAddModalOpen(true) : undefined}
         activeTab={activeTab}
         setActiveTab={changeTab}
@@ -692,33 +684,29 @@ export default function App() {
         activeProfile={activeProfile}
         onSwitchProfile={handleSelectProfile}
         onManageProfiles={() => setIsProfileSelectorOpen(true)}
-        accountLabel={demoMode ? 'Modo demo' : account?.email}
+        accountLabel={accountLabel}
         onOpenAccount={demoMode ? undefined : () => setIsAccountModalOpen(true)}
         onLogout={handleLogout}
       />
 
       <main className="flex-grow">
-        {searchQuery.trim() ? (
+        {searchTerm ? (
           <div className="pt-24 px-4 md:px-12 space-y-6">
             <h1 className="text-xl md:text-2xl font-bold text-gray-200">
-              Resultados para <span className="text-white font-extrabold">"{searchQuery}"</span>
-              {!searching && (
-                <span className="text-xs text-gray-400 font-normal ml-3">
-                  ({visibleSearchResults.length} tráilers encontrados)
-                </span>
-              )}
+              {t('app.search.resultsFor')} <span className="text-white font-extrabold">"{searchQuery}"</span>
+              <span className="text-xs text-gray-400 font-normal ml-3">
+                {t('app.search.found', { count: visibleSearchResults.length })}
+              </span>
             </h1>
-            {searching && visibleSearchResults.length === 0 ? (
-              <p className="py-20 text-center text-gray-400 text-lg" role="status">Buscando…</p>
-            ) : visibleSearchResults.length === 0 ? (
+            {visibleSearchResults.length === 0 ? (
               <div className="py-20 text-center space-y-4">
-                <p className="text-gray-400 text-lg">No se encontraron tráilers para tu búsqueda.</p>
+                <p className="text-gray-400 text-lg">{t('app.search.none')}</p>
                 {canManage && (
                   <button
                     onClick={() => setIsAddModalOpen(true)}
                     className="bg-[#E50914] text-white px-5 py-2 rounded font-semibold text-sm hover:bg-red-700 transition"
                   >
-                    Agregar este tráiler a Sukinema
+                    {t('app.search.addThis')}
                   </button>
                 )}
               </div>
@@ -747,7 +735,7 @@ export default function App() {
                 {TAB_LABELS.stats}
               </h1>
               <p className="text-gray-500 text-sm mt-1">
-                {backendConnected ? 'Datos en tiempo real desde Spring Boot API' : 'Datos del catálogo local'}
+                {t(backendConnected ? 'app.stats.live' : 'app.stats.local')}
               </p>
             </div>
             <StatsPanel movies={visibleMovies} myListCount={myListCount} />
@@ -759,21 +747,19 @@ export default function App() {
                 {TAB_LABELS[activeTab] || activeTab}
               </h1>
               {activeTab === 'myList' && (
-                <span className="text-xs text-gray-400">{tabMovies.length} guardados</span>
+                <span className="text-xs text-gray-400">{t('app.savedCount', { count: tabMovies.length })}</span>
               )}
             </div>
             {tabMovies.length === 0 ? (
               <div className="py-20 text-center space-y-3">
                 <p className="text-gray-400 text-base">
-                  {activeTab === 'myList'
-                    ? 'Aún no has agregado ningún tráiler a tu lista. Haz clic en el botón "+" de cualquier película.'
-                    : 'No hay títulos disponibles en esta sección.'}
+                  {t(activeTab === 'myList' ? 'app.emptyList' : 'app.emptySection')}
                 </p>
                 <button
                   onClick={() => changeTab('home')}
                   className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded text-sm font-semibold transition"
                 >
-                  Explorar catálogo completo
+                  {t('app.exploreCatalog')}
                 </button>
               </div>
             ) : (
@@ -804,11 +790,12 @@ export default function App() {
               onOpenDetails={handleOpenDetails}
             />
             <div className="relative -mt-16 md:-mt-28 z-20 space-y-4 md:space-y-6">
-              {Object.entries(visibleCategories).map(([categoryTitle, moviesList]) => (
+              {Object.entries(visibleCategories).map(([categoryKey, moviesList]) => (
                 <MovieRow
-                  key={categoryTitle}
-                  title={categoryTitle}
-                  movies={moviesList}
+                  key={categoryKey}
+                  title={localizeTerm(categoryKey, lang)}
+                  categoryKey={categoryKey}
+                  movies={moviesList.map(display)}
                   onPlayTrailer={handlePlayTrailer}
                   onOpenDetails={handleOpenDetails}
                   myListIds={myListIds}
@@ -824,11 +811,11 @@ export default function App() {
       </main>
 
       <TrailerModal
-        movie={selectedMovie}
+        movie={shownMovie}
         isOpen={isTrailerModalOpen}
         onClose={handleCloseTrailerModal}
         allMovies={visibleMovies}
-        onSelectMovie={(movie) => setSelectedMovie(movie)}
+        onSelectMovie={(movie) => setSelectedMovie(rawMovie(movie))}
         isSaved={selectedMovie ? myListIds.has(selectedMovie.id) : false}
         onToggleMyList={handleToggleMyList}
         isLiked={selectedMovie ? likedIds.has(selectedMovie.id) : false}

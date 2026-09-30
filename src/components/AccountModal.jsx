@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, UserRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import PasswordField from './PasswordField';
 import { RecoveryCodeBox } from './RecoveryCode';
+import { useI18n } from '../i18n';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -26,6 +27,7 @@ function FormMessage({ error, success }) {
 }
 
 export default function AccountModal({ account, isOpen, onClose, onChangePassword, onNewRecoveryCode }) {
+  const { t } = useI18n();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -64,15 +66,15 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
     e.preventDefault();
     setPasswordSuccess('');
     if (!currentPassword) {
-      setPasswordError('Indica tu contraseña actual.');
+      setPasswordError(t('account.error.current'));
       return;
     }
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setPasswordError(`La contraseña nueva debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+      setPasswordError(t('account.error.newTooShort', { min: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (newPassword === currentPassword) {
-      setPasswordError('La contraseña nueva debe ser distinta de la actual.');
+      setPasswordError(t('account.error.same'));
       return;
     }
     setPasswordError('');
@@ -81,9 +83,9 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
       await onChangePassword(currentPassword, newPassword);
       setCurrentPassword('');
       setNewPassword('');
-      setPasswordSuccess('Contraseña cambiada. Se ha cerrado la sesión en los demás dispositivos.');
+      setPasswordSuccess(t('account.passwordChanged'));
     } catch (err) {
-      setPasswordError(err.message || 'No se pudo cambiar la contraseña.');
+      setPasswordError(err.message || t('account.error.change'));
     } finally {
       setSavingPassword(false);
     }
@@ -92,7 +94,7 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
     if (!codePassword) {
-      setCodeError('Indica tu contraseña.');
+      setCodeError(t('account.error.password'));
       return;
     }
     setCodeError('');
@@ -101,7 +103,7 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
       setRecoveryCode(await onNewRecoveryCode(codePassword));
       setCodePassword('');
     } catch (err) {
-      setCodeError(err.message || 'No se pudo generar el código.');
+      setCodeError(err.message || t('account.error.code'));
     } finally {
       setGeneratingCode(false);
     }
@@ -118,12 +120,12 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10 sticky top-0 bg-[#181818] z-10">
           <div className="flex items-center space-x-2">
             <UserRound size={20} className="text-[#E50914]" />
-            <h2 id="accountModalTitle" className="text-lg font-bold text-white">Mi cuenta</h2>
+            <h2 id="accountModalTitle" className="text-lg font-bold text-white">{t('account.title')}</h2>
           </div>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-gray-300 hover:text-white transition"
-            aria-label="Cerrar"
+            aria-label={t('common.close')}
           >
             <X size={18} />
           </button>
@@ -132,64 +134,64 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
         <div className="px-6 py-5 space-y-6">
           <dl className="text-sm space-y-1">
             <div className="flex justify-between gap-4">
-              <dt className="text-gray-500">Nombre</dt>
+              <dt className="text-gray-500">{t('account.name')}</dt>
               <dd className="text-gray-200 truncate">{account.name}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-gray-500">Correo</dt>
+              <dt className="text-gray-500">{t('account.email')}</dt>
               <dd className="text-gray-200 truncate">{account.email}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-gray-500">Tipo de cuenta</dt>
-              <dd className="text-gray-200">{account.role === 'ADMIN' ? 'Administradora del catálogo' : 'Estándar'}</dd>
+              <dt className="text-gray-500">{t('account.type')}</dt>
+              <dd className="text-gray-200">{t(account.role === 'ADMIN' ? 'account.typeAdmin' : 'account.typeStandard')}</dd>
             </div>
           </dl>
 
           <form onSubmit={handlePasswordSubmit} noValidate className="space-y-4 pt-5 border-t border-white/10">
-            <h3 className="text-sm font-bold text-white">Cambiar contraseña</h3>
+            <h3 className="text-sm font-bold text-white">{t('account.changePassword')}</h3>
             <FormMessage error={passwordError} success={passwordSuccess} />
             <PasswordField
               id="accountCurrentPassword"
-              label="Contraseña actual"
+              label={t('account.currentPassword')}
               value={currentPassword}
               onChange={(value) => { setCurrentPassword(value); setPasswordError(''); }}
               autoComplete="current-password"
             />
             <PasswordField
               id="accountNewPassword"
-              label="Contraseña nueva"
+              label={t('account.newPassword')}
               value={newPassword}
               onChange={(value) => { setNewPassword(value); setPasswordError(''); }}
               autoComplete="new-password"
-              placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
+              placeholder={t('auth.passwordMin', { min: MIN_PASSWORD_LENGTH })}
             />
             <button
               type="submit"
               disabled={savingPassword}
               className="w-full bg-[#E50914] hover:bg-[#b80710] text-white font-bold py-2.5 rounded text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {savingPassword ? 'Cambiando…' : 'Cambiar contraseña'}
+              {t(savingPassword ? 'account.changing' : 'account.changePassword')}
             </button>
           </form>
 
           <form onSubmit={handleCodeSubmit} noValidate className="space-y-4 pt-5 border-t border-white/10">
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-white">Código de recuperación</h3>
+              <h3 className="text-sm font-bold text-white">{t('account.recoveryTitle')}</h3>
               <p className="text-xs text-gray-400">
-                Sirve para entrar si olvidas la contraseña. Si has perdido el tuyo, genera uno nuevo: el anterior deja de valer.
+                {t('account.recoveryIntro')}
               </p>
             </div>
             <FormMessage error={codeError} />
             {recoveryCode ? (
               <div className="space-y-2">
                 <RecoveryCodeBox code={recoveryCode} />
-                <p className="text-xs text-gray-400 text-center">Guárdalo ahora: no se volverá a mostrar.</p>
+                <p className="text-xs text-gray-400 text-center">{t('account.saveNow')}</p>
               </div>
             ) : (
               <>
                 <PasswordField
                   id="accountCodePassword"
-                  label="Tu contraseña"
+                  label={t('account.yourPassword')}
                   value={codePassword}
                   onChange={(value) => { setCodePassword(value); setCodeError(''); }}
                   autoComplete="current-password"
@@ -199,7 +201,7 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
                   disabled={generatingCode}
                   className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-2.5 rounded text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {generatingCode ? 'Generando…' : 'Generar código nuevo'}
+                  {t(generatingCode ? 'account.generating' : 'account.generate')}
                 </button>
               </>
             )}

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Info, Volume2, VolumeX, Flame } from 'lucide-react';
 import TrailerImage from './TrailerImage';
+import { useI18n } from '../i18n';
 
 export default function HeroBanner({ movie, loading = false, paused = false, onPlayTrailer, onOpenDetails }) {
+  const { t } = useI18n();
   const [isMuted, setIsMuted] = useState(true);
   const [playPreview, setPlayPreview] = useState(false);
 
@@ -18,9 +20,9 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
     return (
       <div className="relative h-[70vh] bg-[#141414] flex items-center justify-center px-6 text-center">
         {loading ? (
-          <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin" role="status" aria-label="Cargando"></div>
+          <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin" role="status" aria-label={t('common.loading')}></div>
         ) : (
-          <p className="text-gray-400 text-base">No hay tráilers disponibles para este perfil.</p>
+          <p className="text-gray-400 text-base">{t('hero.empty')}</p>
         )}
       </div>
     );
@@ -53,16 +55,16 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <span className="flex items-center space-x-1 bg-[#E50914] text-white text-xs font-bold px-2 py-0.5 rounded shadow whitespace-nowrap">
             <Flame size={14} className="fill-current" />
-            <span>Nº 1 EN TRÁILERS HOY</span>
+            <span>{t('hero.top')}</span>
           </span>
           <span className="text-green-400 font-semibold text-xs md:text-sm drop-shadow whitespace-nowrap">
-            {movie.matchScore || '98% de coincidencia'}
+            {movie.matchScore || t('content.defaultMatch')}
           </span>
           <span className="border border-gray-400 text-gray-300 text-[11px] px-1 py-0.2 rounded">
             {movie.ageRating || '+16'}
           </span>
           <span className="text-xs text-gray-300 whitespace-nowrap">
-            {movie.duration || 'Tráiler 2m 45s'}
+            {movie.duration || t('content.defaultDuration')}
           </span>
         </div>
 
@@ -80,7 +82,7 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
             className="flex items-center space-x-2 bg-white hover:bg-white/85 text-black font-bold px-5 md:px-7 py-2.5 md:py-3 rounded transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-xl"
           >
             <Play size={20} className="fill-black" />
-            <span className="text-sm md:text-base">Ver Tráiler</span>
+            <span className="text-sm md:text-base">{t('hero.play')}</span>
           </button>
 
           <button
@@ -88,7 +90,7 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
             className="flex items-center space-x-2 bg-gray-500/60 hover:bg-gray-500/80 text-white font-semibold px-4 md:px-6 py-2.5 md:py-3 rounded transition-all duration-200 backdrop-blur-sm"
           >
             <Info size={20} />
-            <span className="text-sm md:text-base">Más información</span>
+            <span className="text-sm md:text-base">{t('hero.moreInfo')}</span>
           </button>
         </div>
       </div>
@@ -99,8 +101,8 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
           <button
             onClick={() => setIsMuted(!isMuted)}
             className="p-2.5 rounded-full border border-white/40 bg-black/40 text-white hover:bg-white/20 transition backdrop-blur-sm"
-            aria-label={isMuted ? "Activar sonido del tráiler" : "Silenciar"}
-            title={isMuted ? "Activar sonido" : "Silenciar"}
+            aria-label={t(isMuted ? 'hero.unmute' : 'hero.mute')}
+            title={t(isMuted ? 'hero.unmuteShort' : 'hero.mute')}
           >
             {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </button>

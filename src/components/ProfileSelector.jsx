@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X, Trash2, Check, AlertCircle, Pencil, LogOut } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useI18n } from '../i18n';
 
 const MAX_PROFILES = 5;
 
@@ -27,6 +29,7 @@ export default function ProfileSelector({
   onLogout,
   accountLabel
 }) {
+  const { t } = useI18n();
   const [managing, setManaging] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -64,11 +67,11 @@ export default function ProfileSelector({
     e.preventDefault();
     const name = form.name.trim();
     if (!name) {
-      setError('Indica un nombre para el perfil.');
+      setError(t('profiles.error.name'));
       return;
     }
     if (profiles.some(p => p.id !== editingProfile?.id && p.name.toLowerCase() === name.toLowerCase())) {
-      setError('Ya existe un perfil con ese nombre.');
+      setError(t('profiles.error.duplicate'));
       return;
     }
     try {
@@ -80,7 +83,7 @@ export default function ProfileSelector({
       }
       closeForm();
     } catch (err) {
-      setError(err.message || 'Error al guardar el perfil.');
+      setError(err.message || t('profiles.error.save'));
     } finally {
       setSaving(false);
     }
@@ -92,11 +95,13 @@ export default function ProfileSelector({
         <button
           onClick={onClose}
           className="absolute top-5 right-5 w-10 h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center transition"
-          aria-label="Cerrar selector de perfiles"
+          aria-label={t('profiles.closeSelector')}
         >
           <X size={20} />
         </button>
       )}
+
+      <LanguageSwitcher className="absolute top-5 left-5" />
 
       <span className="brand-font text-3xl md:text-4xl text-[#E50914] tracking-wider font-extrabold mb-8">
         SUKINEMA
@@ -106,12 +111,12 @@ export default function ProfileSelector({
         <form onSubmit={handleSubmit} className="w-full max-w-md space-y-5">
           <div className="text-center space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-              {editingProfile ? 'Editar perfil' : 'Añadir perfil'}
+              {t(editingProfile ? 'profiles.edit' : 'profiles.add')}
             </h1>
             <p className="text-sm text-gray-400">
               {editingProfile
-                ? 'Su lista de tráilers y sus likes se conservan.'
-                : 'Cada perfil tiene su propia lista de tráilers.'}
+                ? t('profiles.editIntro')
+                : t('profiles.addIntro')}
             </p>
           </div>
 
@@ -130,7 +135,7 @@ export default function ProfileSelector({
 
           <div>
             <label htmlFor="profileName" className="block text-xs font-semibold text-gray-300 mb-1">
-              Nombre *
+              {t('profiles.name')}
             </label>
             <input
               id="profileName"
@@ -141,14 +146,14 @@ export default function ProfileSelector({
                 setError('');
               }}
               maxLength={20}
-              placeholder="Ej: Invitado"
+              placeholder={t('profiles.namePlaceholder')}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white text-sm outline-none"
               autoFocus
             />
           </div>
 
           <div>
-            <span className="block text-xs font-semibold text-gray-300 mb-1">Avatar</span>
+            <span className="block text-xs font-semibold text-gray-300 mb-1">{t('profiles.avatar')}</span>
             <div className="flex flex-wrap gap-2">
               {AVATARS.map(avatar => (
                 <button
@@ -158,7 +163,7 @@ export default function ProfileSelector({
                   className={`w-10 h-10 rounded bg-zinc-900 text-xl flex items-center justify-center border transition ${
                     form.avatar === avatar ? 'border-white' : 'border-zinc-700 hover:border-zinc-500'
                   }`}
-                  aria-label={`Avatar ${avatar}`}
+                  aria-label={t('profiles.avatarOption', { avatar })}
                   aria-pressed={form.avatar === avatar}
                 >
                   {avatar}
@@ -168,7 +173,7 @@ export default function ProfileSelector({
           </div>
 
           <div>
-            <span className="block text-xs font-semibold text-gray-300 mb-1">Color</span>
+            <span className="block text-xs font-semibold text-gray-300 mb-1">{t('profiles.color')}</span>
             <div className="flex flex-wrap gap-2">
               {COLORS.map(color => (
                 <button
@@ -178,7 +183,7 @@ export default function ProfileSelector({
                   className={`w-10 h-10 rounded bg-gradient-to-br ${color} flex items-center justify-center border-2 transition ${
                     form.color === color ? 'border-white' : 'border-transparent hover:border-white/40'
                   }`}
-                  aria-label="Color del perfil"
+                  aria-label={t('profiles.colorOption')}
                   aria-pressed={form.color === color}
                 >
                   {form.color === color && <Check size={16} />}
@@ -195,8 +200,8 @@ export default function ProfileSelector({
               className="mt-0.5 w-4 h-4 accent-[#E50914] cursor-pointer"
             />
             <span>
-              Perfil infantil
-              <span className="block text-xs text-gray-500">Solo muestra tráilers para todos los públicos, +7 y +12.</span>
+              {t('profiles.kid')}
+              <span className="block text-xs text-gray-500">{t('profiles.kidHint')}</span>
             </span>
           </label>
 
@@ -206,21 +211,21 @@ export default function ProfileSelector({
               onClick={closeForm}
               className="px-4 py-2 rounded text-gray-400 hover:text-white transition font-medium text-sm"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={saving}
               className="bg-[#E50914] hover:bg-[#b80710] text-white font-bold px-6 py-2 rounded text-sm transition transform active:scale-95 disabled:opacity-50"
             >
-              {saving ? 'Guardando...' : editingProfile ? 'Guardar cambios' : 'Guardar perfil'}
+              {t(saving ? 'common.saving' : editingProfile ? 'common.saveChanges' : 'profiles.save')}
             </button>
           </div>
         </form>
       ) : (
         <>
           <h1 className="text-2xl md:text-4xl font-extrabold text-white text-center mb-8">
-            {managing ? 'Administrar perfiles' : '¿Quién está viendo?'}
+            {t(managing ? 'profiles.manage' : 'profiles.whoIsWatching')}
           </h1>
 
           <div className="flex flex-wrap justify-center gap-4 md:gap-6 max-w-3xl">
@@ -247,7 +252,7 @@ export default function ProfileSelector({
                   </span>
                   {profile.isKid && (
                     <span className="text-[10px] uppercase font-bold tracking-widest bg-emerald-600 text-white px-1.5 py-0.5 rounded">
-                      Infantil
+                      {t('common.kids')}
                     </span>
                   )}
                 </button>
@@ -257,8 +262,8 @@ export default function ProfileSelector({
                     <button
                       onClick={() => openEditForm(profile)}
                       className="w-9 h-9 rounded-full bg-black/80 hover:bg-white hover:text-black text-white flex items-center justify-center border border-white/40 transition"
-                      title={`Editar perfil ${profile.name}`}
-                      aria-label={`Editar perfil ${profile.name}`}
+                      title={t('profiles.editProfile', { name: profile.name })}
+                      aria-label={t('profiles.editProfile', { name: profile.name })}
                     >
                       <Pencil size={16} />
                     </button>
@@ -266,8 +271,8 @@ export default function ProfileSelector({
                       <button
                         onClick={() => onDelete(profile)}
                         className="w-9 h-9 rounded-full bg-black/80 hover:bg-[#E50914] text-white flex items-center justify-center border border-white/40 transition"
-                        title={`Eliminar perfil ${profile.name}`}
-                        aria-label={`Eliminar perfil ${profile.name}`}
+                        title={t('profiles.deleteProfile', { name: profile.name })}
+                        aria-label={t('profiles.deleteProfile', { name: profile.name })}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -285,7 +290,7 @@ export default function ProfileSelector({
                 <div className="w-24 h-24 md:w-32 md:h-32 rounded-md bg-zinc-900 border-2 border-zinc-700 group-hover:border-white group-focus:border-white text-gray-500 group-hover:text-white flex items-center justify-center transition">
                   <Plus size={44} />
                 </div>
-                <span className="text-sm text-gray-400 group-hover:text-white transition">Añadir perfil</span>
+                <span className="text-sm text-gray-400 group-hover:text-white transition">{t('profiles.add')}</span>
               </button>
             )}
           </div>
@@ -299,7 +304,7 @@ export default function ProfileSelector({
                   : 'text-gray-400 border-gray-500 hover:text-white hover:border-white'
               }`}
             >
-              {managing ? 'Listo' : 'Administrar perfiles'}
+              {t(managing ? 'profiles.done' : 'profiles.manage')}
             </button>
           )}
 
@@ -311,7 +316,7 @@ export default function ProfileSelector({
                 className="inline-flex items-center space-x-1.5 text-gray-400 hover:text-white transition"
               >
                 <LogOut size={14} />
-                <span>Cerrar sesión</span>
+                <span>{t('profiles.logout')}</span>
               </button>
             </p>
           )}

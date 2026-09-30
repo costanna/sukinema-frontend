@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 // Global toast event system
 const TOAST_EVENT = 'sukinema-toast';
@@ -26,6 +27,7 @@ const BG = {
 };
 
 function ToastItem({ toast, onRemove }) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
@@ -56,7 +58,7 @@ function ToastItem({ toast, onRemove }) {
       <button
         onClick={() => { setLeaving(true); setTimeout(() => onRemove(toast.id), 300); }}
         className="text-gray-500 hover:text-gray-200 transition"
-        aria-label="Cerrar aviso"
+        aria-label={t('common.closeToast')}
       >
         <X size={15} />
       </button>

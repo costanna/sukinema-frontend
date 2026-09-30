@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import MovieCard from './MovieCard';
+import { useI18n } from '../i18n';
 
 export default function MovieRow({ 
   title, 
@@ -11,8 +12,11 @@ export default function MovieRow({
   onToggleMyList,
   likedIds = new Set(),
   onLikeMovie,
-  onExplore
+  onExplore,
+  // Nombre de la categoría tal como está guardada; `title` es el que se muestra, ya traducido
+  categoryKey
 }) {
+  const { t } = useI18n();
   const rowRef = useRef(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -56,11 +60,11 @@ export default function MovieRow({
         <span>{title}</span>
         {onExplore && (
           <button
-            onClick={() => onExplore(title)}
+            onClick={() => onExplore(categoryKey ?? title)}
             className="text-xs text-[#E50914] font-semibold opacity-0 group-hover/row:opacity-100 focus:opacity-100 transition-opacity flex items-center hover:underline"
-            aria-label={`Explorar todos los tráilers de ${title}`}
+            aria-label={t('row.exploreLabel', { title })}
           >
-            Explorar todos &gt;
+            {t('row.exploreAll')}
           </button>
         )}
       </h2>
@@ -70,7 +74,7 @@ export default function MovieRow({
           <button
             onClick={() => handleScroll('left')}
             className="absolute left-0 top-0 bottom-0 z-30 w-10 md:w-12 bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity backdrop-blur-sm rounded-r"
-            aria-label="Desplazar a la izquierda"
+            aria-label={t('row.scrollLeft')}
           >
             <ChevronLeft size={30} />
           </button>
@@ -99,7 +103,7 @@ export default function MovieRow({
           <button
             onClick={() => handleScroll('right')}
             className="absolute right-0 top-0 bottom-0 z-30 w-10 md:w-12 bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity backdrop-blur-sm rounded-l"
-            aria-label="Desplazar a la derecha"
+            aria-label={t('row.scrollRight')}
           >
             <ChevronRight size={30} />
           </button>

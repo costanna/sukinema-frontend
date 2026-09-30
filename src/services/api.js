@@ -1,3 +1,5 @@
+import { getLanguage, translate } from '../i18n';
+
 // URL del backend: en Vercel se define VITE_API_URL; en local se usa el backend de desarrollo
 const API_ROOT = (import.meta.env.VITE_API_URL || 'http://localhost:8088').replace(/\/+$/, '');
 
@@ -49,7 +51,7 @@ export const Session = {
 };
 
 async function request(path, { method = 'GET', body, auth = true } = {}) {
-  const headers = {};
+  const headers = { 'Accept-Language': getLanguage() };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const sentToken = auth ? authToken : null;
   if (sentToken) headers.Authorization = `Bearer ${sentToken}`;
@@ -69,7 +71,7 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     });
   } catch {
     throw new ApiError(
-      controller.signal.aborted ? 'El servidor tarda demasiado en responder. Inténtalo de nuevo.' : 'No se pudo conectar con el servidor.',
+      translate(controller.signal.aborted ? 'api.timeout' : 'api.noConnection'),
       0
     );
   } finally {
@@ -77,7 +79,7 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   }
 
   if (!response.ok) {
-    let message = 'Ha ocurrido un error inesperado.';
+    let message = translate('api.unexpected');
     try {
       const data = await response.json();
       if (data?.message) message = data.message;
@@ -163,15 +165,6 @@ export const MovieAPI = {
       return await request('/api/movies');
     } catch (error) {
       console.warn('Sin catálogo del backend:', error.message);
-      return [];
-    }
-  },
-
-  async search(query) {
-    try {
-      return await request(`/api/movies/search?query=${encodeURIComponent(query)}`);
-    } catch (error) {
-      console.warn('Error buscando tráilers:', error.message);
       return [];
     }
   },

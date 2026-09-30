@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 /** Campo de contraseña con el botón del ojo para verla u ocultarla. */
 export default function PasswordField({ id, label, value, onChange, autoComplete, placeholder, autoFocus = false }) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
+  const toggleLabel = t(visible ? 'common.hidePassword' : 'common.showPassword');
 
   return (
     <div>
@@ -26,9 +29,10 @@ export default function PasswordField({ id, label, value, onChange, autoComplete
           type="button"
           onClick={() => setVisible(!visible)}
           className="absolute inset-y-0 right-0 w-11 flex items-center justify-center text-gray-400 hover:text-white transition"
-          aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          aria-label={toggleLabel}
           aria-pressed={visible}
-          title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          title={toggleLabel}
+          data-testid="password-toggle"
         >
           {visible ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>

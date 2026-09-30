@@ -1,29 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Film, Play, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
-import { CATEGORIES, AGE_RATINGS, AGE_RATING_LABELS } from '../constants/catalog';
+import { CATEGORIES, AGE_RATINGS } from '../constants/catalog';
 import { extractYoutubeId } from '../utils/youtube';
+import { useI18n } from '../i18n';
+import { localizeTerm, localizeList, localizeDuration } from '../i18n/content';
+
+// Formulario vacío, con los valores de ejemplo en el idioma de quien lo rellena
+const emptyForm = (lang) => ({
+  title: '',
+  overview: '',
+  trailerUrl: '',
+  backdropUrl: '',
+  posterUrl: '',
+  category: 'Tendencias Ahora',
+  genres: localizeList('Acción, Suspenso', lang),
+  cast: '',
+  director: '',
+  releaseYear: new Date().getFullYear(),
+  ageRating: '+16',
+  duration: localizeDuration('Tráiler 2m 30s', lang),
+  matchScore: '98% de coincidencia',
+  featured: false,
+  trending: true
+});
 
 export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categories = CATEGORIES }) {
+  const { t, lang } = useI18n();
   const dialogRef = useRef(null);
   const scrollRef = useRef(null);
 
-  const [formData, setFormData] = useState({
-    title: '',
-    overview: '',
-    trailerUrl: '',
-    backdropUrl: '',
-    posterUrl: '',
-    category: 'Tendencias Ahora',
-    genres: 'Acción, Suspenso',
-    cast: '',
-    director: '',
-    releaseYear: new Date().getFullYear(),
-    ageRating: '+16',
-    duration: 'Tráiler 2m 30s',
-    matchScore: '98% de coincidencia',
-    featured: false,
-    trending: true
-  });
+  const [formData, setFormData] = useState(() => emptyForm(lang));
+
+  // Si aún no se ha escrito nada, los valores de ejemplo siguen al idioma elegido
+  useEffect(() => {
+    if (isOpen) setFormData(prev => (prev.title || prev.trailerUrl ? prev : emptyForm(lang)));
+  }, [isOpen, lang]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -89,15 +100,15 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
     setError('');
 
     if (!formData.title.trim()) {
-      showError('Por favor indica un título para la película o serie.');
+      showError(t('add.error.title'));
       return;
     }
     if (!formData.trailerUrl.trim()) {
-      showError('Por favor indica la URL o ID del tráiler de YouTube.');
+      showError(t('add.error.url'));
       return;
     }
     if (!previewId) {
-      showError('Esa dirección no es de un vídeo de YouTube. Pega el enlace del tráiler o su ID.');
+      showError(t('add.error.notYoutube'));
       return;
     }
 
@@ -115,25 +126,9 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
       setLoading(true);
       await onMovieAdded(payload);
       onClose();
-      setFormData({
-        title: '',
-        overview: '',
-        trailerUrl: '',
-        backdropUrl: '',
-        posterUrl: '',
-        category: 'Tendencias Ahora',
-        genres: 'Acción, Suspenso',
-        cast: '',
-        director: '',
-        releaseYear: new Date().getFullYear(),
-        ageRating: '+16',
-        duration: 'Tráiler 2m 30s',
-        matchScore: '98% de coincidencia',
-        featured: false,
-        trending: true
-      });
+      setFormData(emptyForm(lang));
     } catch (err) {
-      showError(err.message || 'Error al guardar el nuevo tráiler.');
+      showError(err.message || t('add.error.save'));
     } finally {
       setLoading(false);
     }
@@ -150,7 +145,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-9 h-9 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white flex items-center justify-center transition"
-          aria-label="Cerrar modal"
+          aria-label={t('add.close')}
         >
           <X size={18} />
         </button>
@@ -158,13 +153,13 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
         <div className="space-y-1 mb-6">
           <div className="flex items-center space-x-2 text-[#E50914]">
             <Film size={22} />
-            <span className="text-xs uppercase tracking-widest font-black">SUKINEMA STUDIO</span>
+            <span className="text-xs uppercase tracking-widest font-black">{t('add.studio')}</span>
           </div>
           <h2 id="addModalTitle" className="text-2xl font-black text-white">
-            Agregar Nuevo Tráiler
+            {t('add.title')}
           </h2>
           <p className="text-xs md:text-sm text-gray-400">
-            Añade una película o serie ingresando el video del tráiler (YouTube) y sus detalles para que aparezca en el catálogo estilo Netflix.
+            {t('add.intro')}
           </p>
         </div>
 
@@ -175,10 +170,11 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+        {/* noValidate: los avisos los da la app en el idioma elegido, no el navegador en el suyo */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-4 text-sm">
           <div>
             <label className="block text-xs font-semibold text-gray-300 mb-1">
-              Título de la película o serie *
+              {t('add.field.title')}
             </label>
             <input
               type="text"
@@ -186,7 +182,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               value={formData.title}
               onChange={handleChange}
               maxLength={255}
-              placeholder="Ej: Gladiator II, Stranger Things 5..."
+              placeholder={t('add.field.titlePlaceholder')}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               required
             />
@@ -194,7 +190,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
 
           <div>
             <label className="block text-xs font-semibold text-gray-300 mb-1">
-              URL del Tráiler en YouTube * (o ID del video)
+              {t('add.field.url')}
             </label>
             <input
               type="text"
@@ -202,7 +198,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               value={formData.trailerUrl}
               onChange={handleChange}
               maxLength={255}
-              placeholder="Ej: https://www.youtube.com/watch?v=Way9Dexny3w o Way9Dexny3w"
+              placeholder={t('add.field.urlPlaceholder')}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               required
             />
@@ -210,12 +206,12 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               <div className="mt-2 p-2 bg-zinc-900/90 rounded border border-zinc-700">
                 <span className="text-[11px] text-green-400 font-semibold block mb-1 flex items-center space-x-1">
                   <CheckCircle2 size={13} />
-                  <span>Tráiler de YouTube detectado (ID: {previewId}):</span>
+                  <span>{t('add.detected', { id: previewId })}</span>
                 </span>
                 <div className="aspect-video w-full max-w-sm rounded overflow-hidden">
                   <iframe
                     src={`https://www.youtube.com/embed/${previewId}?controls=1`}
-                    title="Vista previa del tráiler"
+                    title={t('add.previewTitle')}
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   />
@@ -227,7 +223,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                Categoría principal
+                {t('add.field.category')}
               </label>
               <select
                 name="category"
@@ -236,14 +232,14 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               >
                 {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
+                  <option key={category} value={category}>{localizeTerm(category, lang)}</option>
                 ))}
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                Año de estreno
+                {t('add.field.year')}
               </label>
               <input
                 type="number"
@@ -259,7 +255,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
 
           <div>
             <label className="block text-xs font-semibold text-gray-300 mb-1">
-              Imagen de fondo / Banner (URL)
+              {t('add.field.backdrop')}
             </label>
             <input
               type="text"
@@ -267,7 +263,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               value={formData.backdropUrl}
               onChange={handleChange}
               maxLength={1000}
-              placeholder="https://... (deja vacío para usar la miniatura del vídeo)"
+              placeholder={t('add.field.backdropPlaceholder')}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
             />
           </div>
@@ -275,7 +271,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                Géneros (separados por coma)
+                {t('add.field.genres')}
               </label>
               <input
                 type="text"
@@ -283,14 +279,14 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 value={formData.genres}
                 onChange={handleChange}
                 maxLength={255}
-                placeholder="Ej: Acción, Aventura, Fantasía"
+                placeholder={t('add.field.genresPlaceholder')}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                Clasificación de edad
+                {t('add.field.rating')}
               </label>
               <select
                 name="ageRating"
@@ -299,7 +295,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               >
                 {AGE_RATINGS.map(rating => (
-                  <option key={rating} value={rating}>{AGE_RATING_LABELS[rating] || rating}</option>
+                  <option key={rating} value={rating}>{rating === 'TP' ? t('content.ratingAllLong') : rating}</option>
                 ))}
               </select>
             </div>
@@ -307,7 +303,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
 
           <div>
             <label className="block text-xs font-semibold text-gray-300 mb-1">
-              Sinopsis / Resumen
+              {t('add.field.overview')}
             </label>
             <textarea
               name="overview"
@@ -315,7 +311,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               onChange={handleChange}
               rows={3}
               maxLength={2000}
-              placeholder="Describe brevemente de qué trata este tráiler..."
+              placeholder={t('add.field.overviewPlaceholder')}
               className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
             />
           </div>
@@ -323,7 +319,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                Reparto / Actores
+                {t('add.field.cast')}
               </label>
               <input
                 type="text"
@@ -331,14 +327,14 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 value={formData.cast}
                 onChange={handleChange}
                 maxLength={255}
-                placeholder="Ej: Pedro Pascal, Bella Ramsey..."
+                placeholder={t('add.field.castPlaceholder')}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">
-                Director / Creador
+                {t('add.field.director')}
               </label>
               <input
                 type="text"
@@ -346,7 +342,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 value={formData.director}
                 onChange={handleChange}
                 maxLength={255}
-                placeholder="Ej: Christopher Nolan"
+                placeholder={t('add.field.directorPlaceholder')}
                 className="w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2 text-white outline-none"
               />
             </div>
@@ -361,7 +357,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 onChange={handleChange}
                 className="rounded accent-[#E50914]"
               />
-              <span>Colocar como Destacado (Hero Banner)</span>
+              <span>{t('add.featured')}</span>
             </label>
 
             <label className="flex items-center space-x-2 cursor-pointer">
@@ -372,7 +368,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
                 onChange={handleChange}
                 className="rounded accent-[#E50914]"
               />
-              <span>Incluir en Tendencias</span>
+              <span>{t('add.trending')}</span>
             </label>
           </div>
 
@@ -382,7 +378,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               onClick={onClose}
               className="px-4 py-2 rounded text-gray-400 hover:text-white transition font-medium"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -390,7 +386,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
               className="flex items-center space-x-2 bg-[#E50914] hover:bg-[#b80710] text-white font-bold px-6 py-2 rounded transition transform active:scale-95 disabled:opacity-50 shadow-lg shadow-red-950/40"
             >
               <Sparkles size={16} />
-              <span>{loading ? 'Publicando...' : 'Publicar Tráiler'}</span>
+              <span>{t(loading ? 'add.submitting' : 'add.submit')}</span>
             </button>
           </div>
         </form>

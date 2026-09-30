@@ -1,33 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, WifiOff } from 'lucide-react';
 import PasswordField from './PasswordField';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useI18n } from '../i18n';
 
 const MIN_PASSWORD_LENGTH = 8;
 // Igual que LoadingScreen: tras unos segundos se explica que el servidor gratuito está despertando
 const SLOW_NOTICE_MS = 4000;
 
-const TEXTS = {
-  login: {
-    title: 'Inicia sesión',
-    intro: 'Entra para ver el catálogo de tráilers.',
-    submit: 'Iniciar sesión',
-    submitting: 'Entrando…',
-  },
-  register: {
-    title: 'Crea tu cuenta',
-    intro: 'Tendrás tus propios perfiles, tu lista y tus likes.',
-    submit: 'Crear cuenta',
-    submitting: 'Creando cuenta…',
-  },
-  recover: {
-    title: 'Recupera tu cuenta',
-    intro: 'Escribe el código de recuperación que guardaste al crear la cuenta y elige una contraseña nueva.',
-    submit: 'Restablecer contraseña',
-    submitting: 'Restableciendo…',
-  },
-};
-
 export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown = false, onEnterDemo }) {
+  const { t } = useI18n();
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,7 +19,6 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
   const [isSlow, setIsSlow] = useState(false);
   const [error, setError] = useState('');
 
-  const texts = TEXTS[mode];
   const choosesPassword = mode !== 'login';
 
   useEffect(() => {
@@ -58,23 +39,23 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (mode === 'register' && !name.trim()) {
-      setError('Indica tu nombre.');
+      setError(t('auth.error.name'));
       return;
     }
     if (!email.trim()) {
-      setError('Indica tu correo.');
+      setError(t('auth.error.email'));
       return;
     }
     if (mode === 'recover' && !recoveryCode.trim()) {
-      setError('Indica tu código de recuperación.');
+      setError(t('auth.error.recoveryCode'));
       return;
     }
     if (!password) {
-      setError(mode === 'recover' ? 'Indica la contraseña nueva.' : 'Indica tu contraseña.');
+      setError(t(mode === 'recover' ? 'auth.error.newPassword' : 'auth.error.password'));
       return;
     }
     if (choosesPassword && password.length < MIN_PASSWORD_LENGTH) {
-      setError(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+      setError(t('auth.error.passwordTooShort', { min: MIN_PASSWORD_LENGTH }));
       return;
     }
 
@@ -89,7 +70,7 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         await onLogin(email.trim(), password);
       }
     } catch (err) {
-      setError(err.message || 'No se pudo completar el acceso.');
+      setError(err.message || t('auth.error.generic'));
       setSubmitting(false);
     }
   };
@@ -97,7 +78,9 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
   const inputClass = 'w-full bg-zinc-900 border border-zinc-700 focus:border-[#E50914] rounded px-3 py-2.5 text-white text-sm outline-none placeholder-gray-500';
 
   return (
-    <div className="min-h-screen bg-[#141414] flex flex-col items-center justify-center px-4 py-12">
+    <div className="relative min-h-screen bg-[#141414] flex flex-col items-center justify-center px-4 py-12">
+      <LanguageSwitcher className="absolute top-5 right-5" />
+
       <span className="brand-font text-4xl md:text-5xl text-[#E50914] tracking-wider font-extrabold mb-8">
         SUKINEMA
       </span>
@@ -108,8 +91,8 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         className="w-full max-w-sm bg-black/60 border border-white/10 rounded-xl p-6 md:p-8 space-y-5"
       >
         <div className="space-y-1">
-          <h1 className="text-2xl font-extrabold text-white">{texts.title}</h1>
-          <p className="text-sm text-gray-400">{texts.intro}</p>
+          <h1 className="text-2xl font-extrabold text-white">{t(`auth.${mode}.title`)}</h1>
+          <p className="text-sm text-gray-400">{t(`auth.${mode}.intro`)}</p>
         </div>
 
         {error && (
@@ -122,7 +105,7 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         {mode === 'register' && (
           <div>
             <label htmlFor="authName" className="block text-xs font-semibold text-gray-300 mb-1">
-              Nombre
+              {t('auth.name')}
             </label>
             <input
               id="authName"
@@ -131,7 +114,7 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
               onChange={(e) => { setName(e.target.value); setError(''); }}
               maxLength={40}
               autoComplete="name"
-              placeholder="Cómo quieres que te llamemos"
+              placeholder={t('auth.namePlaceholder')}
               className={inputClass}
             />
           </div>
@@ -139,7 +122,7 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
 
         <div>
           <label htmlFor="authEmail" className="block text-xs font-semibold text-gray-300 mb-1">
-            Correo electrónico
+            {t('auth.email')}
           </label>
           <input
             id="authEmail"
@@ -148,7 +131,7 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
             onChange={(e) => { setEmail(e.target.value); setError(''); }}
             maxLength={120}
             autoComplete="email"
-            placeholder="tu@correo.com"
+            placeholder={t('auth.emailPlaceholder')}
             className={inputClass}
             autoFocus
           />
@@ -157,7 +140,7 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         {mode === 'recover' && (
           <div>
             <label htmlFor="authRecoveryCode" className="block text-xs font-semibold text-gray-300 mb-1">
-              Código de recuperación
+              {t('auth.recoveryCode')}
             </label>
             <input
               id="authRecoveryCode"
@@ -178,11 +161,11 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         <PasswordField
           key={mode}
           id="authPassword"
-          label={mode === 'recover' ? 'Contraseña nueva' : 'Contraseña'}
+          label={t(mode === 'recover' ? 'auth.newPassword' : 'auth.password')}
           value={password}
           onChange={(value) => { setPassword(value); setError(''); }}
           autoComplete={choosesPassword ? 'new-password' : 'current-password'}
-          placeholder={choosesPassword ? `Mínimo ${MIN_PASSWORD_LENGTH} caracteres` : 'Tu contraseña'}
+          placeholder={choosesPassword ? t('auth.passwordMin', { min: MIN_PASSWORD_LENGTH }) : t('auth.passwordPlaceholder')}
         />
 
         <button
@@ -190,12 +173,12 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
           disabled={submitting}
           className="w-full bg-[#E50914] hover:bg-[#b80710] text-white font-bold py-2.5 rounded text-sm transition transform active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {submitting ? texts.submitting : texts.submit}
+          {t(`auth.${mode}.${submitting ? 'submitting' : 'submit'}`)}
         </button>
 
         {isSlow && (
           <p role="status" className="text-xs text-gray-500 text-center">
-            El servidor se está despertando. La primera vez puede tardar hasta un minuto.
+            {t('common.serverWaking')}
           </p>
         )}
 
@@ -203,18 +186,18 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
           {mode === 'login' && (
             <p>
               <button type="button" onClick={() => switchMode('recover')} className="hover:text-white hover:underline">
-                ¿Olvidaste tu contraseña?
+                {t('auth.forgot')}
               </button>
             </p>
           )}
           <p>
-            {mode === 'login' ? '¿Primera vez en Sukinema?' : mode === 'register' ? '¿Ya tienes cuenta?' : '¿La has recordado?'}{' '}
+            {t(mode === 'login' ? 'auth.firstTime' : mode === 'register' ? 'auth.haveAccount' : 'auth.remembered')}{' '}
             <button
               type="button"
               onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
               className="text-white font-semibold hover:underline"
             >
-              {mode === 'login' ? 'Crea una cuenta' : 'Inicia sesión'}
+              {t(mode === 'login' ? 'auth.createAccount' : 'auth.signIn')}
             </button>
           </p>
         </div>
@@ -224,14 +207,14 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         <div className="w-full max-w-sm mt-5 p-4 bg-amber-950/40 border border-amber-700/50 rounded-xl text-xs text-amber-100 space-y-3">
           <p className="flex items-start space-x-2">
             <WifiOff size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <span>El servidor no responde ahora mismo. Puedes explorar un catálogo de ejemplo; lo que hagas ahí no se guarda.</span>
+            <span>{t('auth.serverDown')}</span>
           </p>
           <button
             type="button"
             onClick={onEnterDemo}
             className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-2 rounded transition"
           >
-            Entrar en modo demo
+            {t('auth.enterDemo')}
           </button>
         </div>
       )}

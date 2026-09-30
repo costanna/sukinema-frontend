@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Plus, Check, ThumbsUp, ChevronDown } from 'lucide-react';
 import TrailerImage from './TrailerImage';
+import { useI18n } from '../i18n';
 
 export default function MovieCard({ 
   movie, 
@@ -13,6 +14,7 @@ export default function MovieCard({
   // En carrusel la tarjeta tiene ancho fijo; en cuadrícula (fluid) ocupa su columna
   fluid = false
 }) {
+  const { t } = useI18n();
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -31,7 +33,7 @@ export default function MovieCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80" />
 
         <span className="absolute top-2 left-2 text-[9px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-sm text-red-500 px-1.5 py-0.5 rounded">
-          Tráiler
+          {t('card.badge')}
         </span>
 
         <div className="absolute bottom-2 left-2 right-2">
@@ -50,8 +52,8 @@ export default function MovieCard({
                 onPlayTrailer(movie);
               }}
               className="w-8 h-8 rounded-full bg-white hover:bg-gray-200 text-black flex items-center justify-center transition transform active:scale-90"
-              title="Reproducir Tráiler"
-              aria-label="Reproducir Tráiler"
+              title={t('card.play')}
+              aria-label={t('card.play')}
             >
               <Play size={15} className="fill-black ml-0.5" />
             </button>
@@ -62,8 +64,8 @@ export default function MovieCard({
                 if (onToggleMyList) onToggleMyList(movie);
               }}
               className="w-8 h-8 rounded-full border border-gray-400 hover:border-white bg-[#2a2a2a]/60 text-white flex items-center justify-center transition"
-              title={isSaved ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}
-              aria-label={isSaved ? "Quitar de Mi Lista" : "Agregar a Mi Lista"}
+              title={t(isSaved ? 'card.removeFromList' : 'card.addToList')}
+              aria-label={t(isSaved ? 'card.removeFromList' : 'card.addToList')}
               aria-pressed={isSaved}
             >
               {isSaved ? <Check size={16} className="text-green-400" /> : <Plus size={16} />}
@@ -77,8 +79,8 @@ export default function MovieCard({
               className={`w-8 h-8 rounded-full border bg-[#2a2a2a]/60 flex items-center justify-center transition ${
                 isLiked ? 'border-blue-400 text-blue-300' : 'border-gray-400 hover:border-white text-white'
               }`}
-              title={isLiked ? "Te gusta este tráiler" : "Me gusta"}
-              aria-label="Me gusta"
+              title={t(isLiked ? 'card.liked' : 'card.like')}
+              aria-label={t('card.like')}
               aria-pressed={isLiked}
             >
               <ThumbsUp size={14} className={isLiked ? 'fill-current' : ''} />
@@ -91,15 +93,15 @@ export default function MovieCard({
               onOpenDetails(movie);
             }}
             className="w-8 h-8 rounded-full border border-gray-400 hover:border-white text-white flex items-center justify-center transition ml-auto"
-            title="Ver detalles"
-            aria-label="Ver detalles"
+            title={t('card.details')}
+            aria-label={t('card.details')}
           >
             <ChevronDown size={16} />
           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-gray-300">
-          <span className="text-green-400 font-bold whitespace-nowrap">{movie.matchScore || '96% coincidencia'}</span>
+          <span className="text-green-400 font-bold whitespace-nowrap">{movie.matchScore || t('content.defaultMatch')}</span>
           <span className="border border-gray-500 text-gray-400 px-1 py-0.2 rounded text-[10px]">
             {movie.ageRating || '+16'}
           </span>
@@ -108,7 +110,7 @@ export default function MovieCard({
         </div>
 
         <div className="text-[11px] text-gray-400 truncate">
-          {movie.genres ? movie.genres.split(',').slice(0, 3).join(' • ') : 'Acción • Aventura'}
+          {movie.genres ? movie.genres.split(',').slice(0, 3).join(' • ') : t('card.defaultGenres')}
         </div>
       </div>
     </div>
