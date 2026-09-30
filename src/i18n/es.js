@@ -267,7 +267,9 @@ export default {
   'footer.tagline': '• Plataforma de Tráilers Full Stack',
   'footer.sections': 'Secciones',
   'footer.catalog': 'Catálogo de Tráilers',
-  'footer.copyright': '© 2026 SUKINEMA. Inspirado en la interfaz de Netflix para explorar y disfrutar trailers cinematográficos.',
+  'footer.copyright': '© {year} SUKINEMA · Creado por',
+  'footer.portfolio': 'Portfolio de @costanna (se abre en una pestaña nueva)',
+  'footer.inspired': 'Inspirado en la interfaz de Netflix para explorar y disfrutar tráilers de cine.',
   'footer.madeWith': 'Hecho con',
   'footer.forCinephiles': 'para cineastas y amantes del cine',
 

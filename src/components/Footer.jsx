@@ -3,6 +3,8 @@ import { Heart } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useI18n } from '../i18n';
 
+const PORTFOLIO_URL = 'https://anna-dev-teal.vercel.app/';
+
 const FOOTER_LINKS = [
   { id: 'home', labelKey: 'footer.catalog' },
   { id: 'tendencias', labelKey: 'nav.trending' },
@@ -49,7 +51,22 @@ export default function Footer({ onNavigate }) {
         </nav>
 
         <div className="pt-6 border-t border-zinc-800/40 flex flex-col sm:flex-row items-center justify-between text-zinc-500 gap-3">
-          <p>{t('footer.copyright')}</p>
+          <div className="text-center sm:text-left space-y-1">
+            <p>
+              {t('footer.copyright', { year: new Date().getFullYear() })}{' '}
+              <a
+                href={PORTFOLIO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={t('footer.portfolio')}
+                aria-label={t('footer.portfolio')}
+                className="font-semibold text-zinc-300 hover:text-[#E50914] underline-offset-2 hover:underline transition-colors"
+              >
+                @costanna
+              </a>
+            </p>
+            <p className="text-zinc-600">{t('footer.inspired')}</p>
+          </div>
           <p className="flex items-center space-x-1">
             <span>{t('footer.madeWith')}</span>
             <Heart size={13} className="text-red-600 fill-current" />
