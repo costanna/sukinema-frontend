@@ -5,7 +5,6 @@ import { extractYoutubeId } from '../utils/youtube';
 import { useI18n } from '../i18n';
 import { localizeTerm, localizeList, localizeDuration } from '../i18n/content';
 
-// Formulario vacío, con los valores de ejemplo en el idioma de quien lo rellena
 const emptyForm = (lang) => ({
   title: '',
   overview: '',
@@ -30,14 +29,13 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
   const scrollRef = useRef(null);
 
   const [formData, setFormData] = useState(() => emptyForm(lang));
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Si aún no se ha escrito nada, los valores de ejemplo siguen al idioma elegido
   useEffect(() => {
     if (isOpen) setFormData(prev => (prev.title || prev.trailerUrl ? prev : emptyForm(lang)));
   }, [isOpen, lang]);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const previewId = extractYoutubeId(formData.trailerUrl);
 
   // El aviso de error está arriba del formulario: se sube para que se vea
@@ -119,7 +117,7 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
       // Sin imagen propia se deja vacío: la app muestra entonces la miniatura del vídeo de YouTube
       backdropUrl: formData.backdropUrl.trim(),
       posterUrl: formData.posterUrl.trim() || formData.backdropUrl.trim(),
-      releaseYear: parseInt(formData.releaseYear, 10) || 2024
+      releaseYear: parseInt(formData.releaseYear, 10) || null
     };
 
     try {

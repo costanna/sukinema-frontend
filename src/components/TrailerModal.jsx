@@ -217,16 +217,16 @@ export default function TrailerModal({
                 <span className="text-green-400 font-bold">
                   {movie.matchScore || t('content.defaultMatch')}
                 </span>
-                <span className="text-gray-400 font-normal">
-                  {movie.releaseYear || '2024'}
-                </span>
+                {movie.releaseYear && (
+                  <span className="text-gray-400 font-normal">{movie.releaseYear}</span>
+                )}
                 <span className="border border-gray-500 text-gray-300 text-xs px-1.5 py-0.5 rounded">
                   {movie.ageRating || '+16'}
                 </span>
                 <span className="text-gray-300 text-xs">
                   {movie.duration || t('content.defaultDuration')}
                 </span>
-                <span className="border border-gray-600 text-[10px] text-gray-400 px-1 py-0.2 rounded font-bold">
+                <span className="border border-gray-600 text-[10px] text-gray-400 px-1 py-px rounded font-bold">
                   Ultra HD 4K
                 </span>
               </div>
@@ -301,7 +301,7 @@ export default function TrailerModal({
                           <Play size={16} className="fill-white ml-0.5" />
                         </div>
                       </div>
-                      <span className="absolute bottom-1 right-1 text-[10px] bg-black/80 px-1 py-0.2 rounded text-gray-300">
+                      <span className="absolute bottom-1 right-1 text-[10px] bg-black/80 px-1 py-px rounded text-gray-300">
                         {rel.duration || t('content.defaultDuration')}
                       </span>
                     </div>

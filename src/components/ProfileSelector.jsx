@@ -40,7 +40,6 @@ export default function ProfileSelector({
   const showForm = creating || !!editingProfile;
 
   const openCreateForm = () => {
-    // Sugerir un color que aún no esté en uso
     const used = new Set(profiles.map(p => p.color));
     setForm({ ...EMPTY_FORM, color: COLORS.find(c => !used.has(c)) || COLORS[0] });
     setError('');

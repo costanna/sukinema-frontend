@@ -54,6 +54,10 @@ npm run check:i18n
 
 Avisa de claves sin traducir, de textos escritos directamente en los componentes y de tráilers iniciales sin traducción.
 
+## Buscador
+
+Busca a partir de 3 letras en el título, el reparto, la dirección, los géneros, la categoría y la sinopsis. Cada palabra escrita debe ser el principio de una palabra del tráiler, sin importar mayúsculas ni acentos: "nol" encuentra a Christopher Nolan, "timothee" a Timothée Chalamet, y "nolan christopher" también vale.
+
 ## Variables de entorno
 
 | Variable | Para qué | Sin ella |

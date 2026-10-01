@@ -1,7 +1,6 @@
 import React from 'react';
 import { LANGUAGES, useI18n } from '../i18n';
 
-/** Botones para elegir el idioma de la web. La elección se recuerda en el navegador. */
 export default function LanguageSwitcher({ className = '' }) {
   const { lang, setLang, t } = useI18n();
 

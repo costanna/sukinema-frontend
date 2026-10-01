@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 
-// Global toast event system
 const TOAST_EVENT = 'sukinema-toast';
 let nextToastId = 0;
 
@@ -32,9 +31,7 @@ function ToastItem({ toast, onRemove }) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    // Animate in
     requestAnimationFrame(() => setVisible(true));
-    // Animate out before removal
     const leaveTimer = setTimeout(() => {
       setLeaving(true);
       setTimeout(() => onRemove(toast.id), 300);
@@ -76,7 +73,7 @@ export default function ToastContainer() {
 
   useEffect(() => {
     const handler = (e) => {
-      setToasts(prev => [...prev.slice(-4), e.detail]); // max 5 toasts
+      setToasts(prev => [...prev.slice(-4), e.detail]);
     };
     window.addEventListener(TOAST_EVENT, handler);
     return () => window.removeEventListener(TOAST_EVENT, handler);

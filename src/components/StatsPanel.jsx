@@ -5,7 +5,7 @@ import { useI18n } from '../i18n';
 
 function StatCard({ icon, label, value, sub, color = 'text-white' }) {
   return (
-    <div className="bg-zinc-900/80 border border-white/8 rounded-xl p-5 space-y-1 hover:border-white/20 transition">
+    <div className="bg-zinc-900/80 border border-white/10 rounded-xl p-5 space-y-1 hover:border-white/20 transition">
       <div className="flex items-center space-x-2 text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
         {icon}
         <span>{label}</span>
@@ -16,7 +16,7 @@ function StatCard({ icon, label, value, sub, color = 'text-white' }) {
   );
 }
 
-export default function StatsPanel({ movies = [], myListCount = 0 }) {
+export default function StatsPanel({ movies = [], myListCount = 0, loading = false }) {
   const { t } = useI18n();
   const stats = useMemo(() => {
     if (movies.length === 0) return null;
@@ -52,14 +52,13 @@ export default function StatsPanel({ movies = [], myListCount = 0 }) {
     return (
       <div className="text-center py-20 text-gray-500">
         <BarChart3 size={40} className="mx-auto mb-3 opacity-30" />
-        <p>{t('stats.loading')}</p>
+        <p>{t(loading ? 'stats.loading' : 'app.emptySection')}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
           icon={<Film size={14} />}
@@ -92,8 +91,7 @@ export default function StatsPanel({ movies = [], myListCount = 0 }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top liked trailers */}
-        <div className="bg-zinc-900/60 border border-white/8 rounded-xl p-5 space-y-4">
+        <div className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center space-x-2">
             <ThumbsUp size={16} className="text-blue-400" />
             <span>{t('stats.top')}</span>
@@ -123,8 +121,7 @@ export default function StatsPanel({ movies = [], myListCount = 0 }) {
           )}
         </div>
 
-        {/* By category bar chart */}
-        <div className="bg-zinc-900/60 border border-white/8 rounded-xl p-5 space-y-4">
+        <div className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center space-x-2">
             <BarChart3 size={16} className="text-[#E50914]" />
             <span>{t('stats.byCategory')}</span>
@@ -152,9 +149,8 @@ export default function StatsPanel({ movies = [], myListCount = 0 }) {
         </div>
       </div>
 
-      {/* Newest additions */}
       {stats.newestFirst.length > 0 && (
-        <div className="bg-zinc-900/60 border border-white/8 rounded-xl p-5 space-y-4">
+        <div className="bg-zinc-900/60 border border-white/10 rounded-xl p-5 space-y-4">
           <h3 className="text-sm font-bold text-white flex items-center space-x-2">
             <Film size={16} className="text-green-400" />
             <span>{t('stats.latest')}</span>

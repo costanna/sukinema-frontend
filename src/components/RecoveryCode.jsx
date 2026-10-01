@@ -3,7 +3,6 @@ import { Copy, KeyRound } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useI18n } from '../i18n';
 
-/** Muestra un código de recuperación con un botón para copiarlo. */
 export function RecoveryCodeBox({ code }) {
   const { t } = useI18n();
   // 'idle' | 'copied' | 'failed'

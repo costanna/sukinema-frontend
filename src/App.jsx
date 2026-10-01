@@ -19,6 +19,7 @@ import { AuthAPI, MovieAPI, ProfileAPI, Session, FALLBACK_PROFILES } from './ser
 import { FALLBACK_MOVIES, getFallbackCategories } from './data/fallbackData';
 import { CATEGORIES } from './constants/catalog';
 import { extractYoutubeId } from './utils/youtube';
+import { MIN_SEARCH_LENGTH, searchWords, movieWords, matchesWords } from './utils/search';
 import { useI18n } from './i18n';
 import { localizeMovie, localizeTerm, rawMovie, canonicalTerms } from './i18n/content';
 
@@ -70,14 +71,9 @@ const isKidSafe = (movie) => {
   return Number.isNaN(age) || age <= 12;
 };
 
-const SEARCHED_FIELDS = ['title', 'genres', 'cast', 'director', 'category', 'overview'];
-const matchesSearch = (movie, term) =>
-  SEARCHED_FIELDS.some(field => movie[field] && String(movie[field]).toLowerCase().includes(term));
-
 export default function App() {
   const { t, lang } = useI18n();
 
-  // Sesión: cuenta con la que se ha entrado, o modo demo si el servidor no responde
   const [account, setAccount] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
   const [checkingSession, setCheckingSession] = useState(Session.hasToken());
@@ -116,7 +112,6 @@ export default function App() {
   const tRef = useRef(t);
   tRef.current = t;
 
-  // Tráiler con sus textos en el idioma activo, para mostrarlo
   const display = (movie) => localizeMovie(movie, lang);
 
   useEffect(() => {
@@ -172,10 +167,12 @@ export default function App() {
     const wasSaved = myListIds.has(movie.id);
     const profileId = activeProfile.id;
     // Se refleja al momento; si el servidor lo rechaza, se deshace
-    setMyListIds(prev => withToggled(prev, movie.id, !wasSaved));
-    if (demoMode) {
-      writeIdSet(myListKey(profileId), withToggled(myListIds, movie.id, !wasSaved));
-    } else {
+    setMyListIds(prev => {
+      const next = withToggled(prev, movie.id, !wasSaved);
+      if (demoMode) writeIdSet(myListKey(profileId), next);
+      return next;
+    });
+    if (!demoMode) {
       try {
         if (wasSaved) await ProfileAPI.removeFromMyList(profileId, movie.id);
         else await ProfileAPI.addToMyList(profileId, movie.id);
@@ -191,36 +188,30 @@ export default function App() {
     );
   };
 
-  const useLocalCatalog = () => {
+  const showLocalCatalog = () => {
     setCategories(getFallbackCategories());
     setAllMovies(FALLBACK_MOVIES);
     setFeaturedMovie(FALLBACK_MOVIES[0]);
     setBackendConnected(false);
   };
 
+  // Las lecturas del catálogo no lanzan: si el servidor no responde, se usa el catálogo local
   const loadData = async () => {
-    try {
-      setLoading(true);
-      const [feat, cats, all] = await Promise.all([
-        MovieAPI.getFeatured(),
-        MovieAPI.getCategories(),
-        MovieAPI.getAll()
-      ]);
-
-      if (cats && Object.keys(cats).length > 0 && all && all.length > 0) {
-        setCategories(cats);
-        setAllMovies(all);
-        setFeaturedMovie(feat || all[0]);
-        setBackendConnected(true);
-      } else {
-        useLocalCatalog();
-      }
-    } catch (err) {
-      console.warn('Usando catálogo inicial por desconexión del backend:', err);
-      useLocalCatalog();
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const [feat, cats, all] = await Promise.all([
+      MovieAPI.getFeatured(),
+      MovieAPI.getCategories(),
+      MovieAPI.getAll()
+    ]);
+    if (cats && Object.keys(cats).length > 0 && all.length > 0) {
+      setCategories(cats);
+      setAllMovies(all);
+      setFeaturedMovie(feat || all[0]);
+      setBackendConnected(true);
+    } else {
+      showLocalCatalog();
     }
+    setLoading(false);
   };
 
   const restoreActiveProfile = (list) => {
@@ -241,7 +232,6 @@ export default function App() {
     }
   };
 
-  // Session handlers
   const startSession = (sessionAccount) => {
     setAccount(sessionAccount);
     setDemoMode(false);
@@ -321,7 +311,7 @@ export default function App() {
 
   const handleEnterDemo = () => {
     setDemoMode(true);
-    useLocalCatalog();
+    showLocalCatalog();
     setLoading(false);
     setProfiles(FALLBACK_PROFILES);
     restoreActiveProfile(FALLBACK_PROFILES);
@@ -335,7 +325,6 @@ export default function App() {
     showToast(t(wasDemo ? 'toast.leftDemo' : 'toast.loggedOut'), 'info');
   };
 
-  // Profile handlers
   const handleSelectProfile = (profile) => {
     if (profile.id !== activeProfile?.id) {
       showToast(t('toast.viewingAs', { name: profile.name, avatar: profile.avatar }), 'info');
@@ -395,6 +384,7 @@ export default function App() {
 
   const changeTab = (tab) => {
     setActiveTab(tab);
+    setSearchQuery('');
     window.scrollTo({ top: 0 });
   };
 
@@ -404,12 +394,7 @@ export default function App() {
   };
 
   // Los componentes reciben tráilers traducidos; en el estado se guarda siempre el original
-  const handlePlayTrailer = (movie) => {
-    setSelectedMovie(rawMovie(movie));
-    setIsTrailerModalOpen(true);
-  };
-
-  const handleOpenDetails = (movie) => {
+  const handleOpenMovie = (movie) => {
     setSelectedMovie(rawMovie(movie));
     setIsTrailerModalOpen(true);
   };
@@ -444,14 +429,13 @@ export default function App() {
     }
   };
 
-  // Edit handlers: se edita el texto guardado, no su traducción
+  // Se edita el texto guardado, no su traducción
   const handleOpenEdit = (movie) => {
     setMovieToEdit(rawMovie(movie));
     setIsTrailerModalOpen(false);
     setTimeout(() => setIsEditModalOpen(true), 150);
   };
 
-  // Reemplaza un tráiler en todas las vistas que lo muestran
   const applyMovieUpdate = (updated) => {
     const replace = (list) => list.map(m => m.id === updated.id ? updated : m);
     setAllMovies(replace);
@@ -480,7 +464,6 @@ export default function App() {
     }
   };
 
-  // Like handler: un like por perfil; pulsar de nuevo lo quita
   const handleLikeMovie = async (movie) => {
     const source = rawMovie(movie);
     const wasLiked = likedIds.has(source.id);
@@ -488,7 +471,6 @@ export default function App() {
     let updated;
     if (demoMode) {
       updated = { ...source, likes: Math.max(0, (source.likes || 0) + (wasLiked ? -1 : 1)) };
-      writeIdSet(likesKey(profileId), withToggled(likedIds, source.id, !wasLiked));
     } else {
       try {
         updated = wasLiked
@@ -500,11 +482,14 @@ export default function App() {
       }
     }
     applyMovieUpdate(updated);
-    setLikedIds(prev => withToggled(prev, source.id, !wasLiked));
+    setLikedIds(prev => {
+      const next = withToggled(prev, source.id, !wasLiked);
+      if (demoMode) writeIdSet(likesKey(profileId), next);
+      return next;
+    });
     showToast(t(wasLiked ? 'toast.unliked' : 'toast.liked', { title: movie.title }), wasLiked ? 'info' : 'success');
   };
 
-  // Delete handler
   const handleDeleteMovie = async (movie) => {
     const deletedId = movie.id;
     if (backendConnected) {
@@ -533,7 +518,6 @@ export default function App() {
     showToast(t('toast.deleted', { title: movie.title }), 'info');
   };
 
-  // Lo que ve el perfil activo: el infantil solo recibe títulos aptos
   const isKid = !!activeProfile?.isKid;
   // El catálogo lo gestiona la cuenta administradora (en modo demo, los cambios son solo locales)
   const canManage = !isKid && (demoMode || account?.role === 'ADMIN');
@@ -544,7 +528,6 @@ export default function App() {
     [allMovies, isKid]
   );
 
-  // Y en el idioma activo: son los que se pintan
   const visibleMovies = useMemo(
     () => sourceMovies.map(movie => localizeMovie(movie, lang)),
     [sourceMovies, lang]
@@ -572,12 +555,17 @@ export default function App() {
   const visibleFeatured = sourceFeatured ? display(sourceFeatured) : null;
 
   // La búsqueda mira el texto traducido y también el original
-  const searchTerm = searchQuery.trim().toLowerCase();
+  const searchTerm = searchQuery.trim();
+  const queryWords = useMemo(() => searchWords(searchQuery), [searchQuery]);
+  const searchIndex = useMemo(
+    () => visibleMovies.map(movie => ({ movie, words: movieWords(movie, rawMovie(movie)) })),
+    [visibleMovies]
+  );
   const visibleSearchResults = useMemo(
-    () => (searchTerm
-      ? visibleMovies.filter(movie => matchesSearch(movie, searchTerm) || matchesSearch(rawMovie(movie), searchTerm))
+    () => (queryWords.length > 0
+      ? searchIndex.filter(entry => matchesWords(entry.words, queryWords)).map(entry => entry.movie)
       : []),
-    [visibleMovies, searchTerm]
+    [searchIndex, queryWords]
   );
 
   const myListCount = visibleMovies.filter(m => myListIds.has(m.id)).length;
@@ -674,6 +662,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#141414] text-white flex flex-col selection:bg-[#E50914] selection:text-white">
       <Navbar
+        searchQuery={searchQuery}
         onSearch={setSearchQuery}
         onOpenAddModal={canManage ? () => setIsAddModalOpen(true) : undefined}
         activeTab={activeTab}
@@ -694,11 +683,17 @@ export default function App() {
           <div className="pt-24 px-4 md:px-12 space-y-6">
             <h1 className="text-xl md:text-2xl font-bold text-gray-200">
               {t('app.search.resultsFor')} <span className="text-white font-extrabold">"{searchQuery}"</span>
-              <span className="text-xs text-gray-400 font-normal ml-3">
-                {t('app.search.found', { count: visibleSearchResults.length })}
-              </span>
+              {queryWords.length > 0 && (
+                <span className="text-xs text-gray-400 font-normal ml-3">
+                  {t('app.search.found', { count: visibleSearchResults.length })}
+                </span>
+              )}
             </h1>
-            {visibleSearchResults.length === 0 ? (
+            {queryWords.length === 0 ? (
+              <p className="py-20 text-center text-gray-400 text-lg">
+                {t('app.search.minChars', { min: MIN_SEARCH_LENGTH })}
+              </p>
+            ) : visibleSearchResults.length === 0 ? (
               <div className="py-20 text-center space-y-4">
                 <p className="text-gray-400 text-lg">{t('app.search.none')}</p>
                 {canManage && (
@@ -716,8 +711,8 @@ export default function App() {
                   <MovieCard
                     key={movie.id}
                     movie={movie}
-                    onPlayTrailer={handlePlayTrailer}
-                    onOpenDetails={handleOpenDetails}
+                    onPlayTrailer={handleOpenMovie}
+                    onOpenDetails={handleOpenMovie}
                     isSaved={myListIds.has(movie.id)}
                     onToggleMyList={handleToggleMyList}
                     isLiked={likedIds.has(movie.id)}
@@ -738,7 +733,7 @@ export default function App() {
                 {t(backendConnected ? 'app.stats.live' : 'app.stats.local')}
               </p>
             </div>
-            <StatsPanel movies={visibleMovies} myListCount={myListCount} />
+            <StatsPanel movies={visibleMovies} myListCount={myListCount} loading={loading} />
           </div>
         ) : activeTab !== 'home' ? (
           <div className="pt-24 px-4 md:px-12 space-y-6 min-h-[60vh]">
@@ -768,8 +763,8 @@ export default function App() {
                   <MovieCard
                     key={movie.id}
                     movie={movie}
-                    onPlayTrailer={handlePlayTrailer}
-                    onOpenDetails={handleOpenDetails}
+                    onPlayTrailer={handleOpenMovie}
+                    onOpenDetails={handleOpenMovie}
                     isSaved={myListIds.has(movie.id)}
                     onToggleMyList={handleToggleMyList}
                     isLiked={likedIds.has(movie.id)}
@@ -786,8 +781,8 @@ export default function App() {
               movie={visibleFeatured}
               loading={loading}
               paused={isAnyOverlayOpen}
-              onPlayTrailer={handlePlayTrailer}
-              onOpenDetails={handleOpenDetails}
+              onPlayTrailer={handleOpenMovie}
+              onOpenDetails={handleOpenMovie}
             />
             <div className="relative -mt-16 md:-mt-28 z-20 space-y-4 md:space-y-6">
               {Object.entries(visibleCategories).map(([categoryKey, moviesList]) => (
@@ -796,8 +791,8 @@ export default function App() {
                   title={localizeTerm(categoryKey, lang)}
                   categoryKey={categoryKey}
                   movies={moviesList.map(display)}
-                  onPlayTrailer={handlePlayTrailer}
-                  onOpenDetails={handleOpenDetails}
+                  onPlayTrailer={handleOpenMovie}
+                  onOpenDetails={handleOpenMovie}
                   myListIds={myListIds}
                   onToggleMyList={handleToggleMyList}
                   likedIds={likedIds}
@@ -853,7 +848,6 @@ export default function App() {
 
       {isProfileSelectorOpen && profileSelector}
 
-      {/* Global UI helpers */}
       <ToastContainer key="toasts" />
       <ScrollToTop />
 

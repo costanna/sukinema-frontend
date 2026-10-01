@@ -13,6 +13,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Navbar({
+  searchQuery = '',
   onSearch,
   onOpenAddModal,
   activeTab,
@@ -30,7 +31,6 @@ export default function Navbar({
   const { t } = useI18n();
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
@@ -84,24 +84,8 @@ export default function Navbar({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (onSearch) {
-      onSearch(searchQuery);
-    }
-  };
-
-  const handleSearchChange = (e) => {
-    const val = e.target.value;
-    setSearchQuery(val);
-    if (onSearch) {
-      onSearch(val);
-    }
-  };
-
   const clearSearch = () => {
-    setSearchQuery('');
-    if (onSearch) onSearch('');
+    onSearch('');
     setSearchOpen(false);
   };
 
@@ -114,7 +98,7 @@ export default function Navbar({
   const isActiveTab = (tabId) => activeTab === tabId && (tabId !== 'home' || !searchQuery);
 
   const myListBadge = myListCount > 0 && (
-    <span className="bg-[#E50914] text-white text-xs px-1.5 py-0.2 rounded-full font-bold">
+    <span className="bg-[#E50914] text-white text-xs px-1.5 py-px rounded-full font-bold">
       {myListCount}
     </span>
   );
@@ -188,7 +172,7 @@ export default function Navbar({
           </button>
         )}
 
-        <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+        <form onSubmit={(e) => e.preventDefault()} role="search" className="relative flex items-center">
           <div
             className={`flex items-center transition-all duration-300 ${
               searchOpen ? 'w-48 sm:w-64 bg-black/80 border border-white/40 px-2.5 py-1 rounded' : 'w-8 bg-transparent'
@@ -206,7 +190,7 @@ export default function Navbar({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={handleSearchChange}
+                onChange={(e) => onSearch(e.target.value)}
                 placeholder={t('nav.searchPlaceholder')}
                 className="bg-transparent text-sm text-white focus:outline-none ml-2 w-full placeholder-gray-400"
                 autoFocus

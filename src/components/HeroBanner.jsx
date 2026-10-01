@@ -8,15 +8,15 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
   const [isMuted, setIsMuted] = useState(true);
   const [playPreview, setPlayPreview] = useState(false);
 
+  // El vídeo de fondo arranca un momento después de mostrar la imagen, y de nuevo al cambiar de tráiler
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setPlayPreview(true);
-    }, 1800);
+    setPlayPreview(false);
+    const timer = setTimeout(() => setPlayPreview(true), 1800);
     return () => clearTimeout(timer);
-  }, [movie]);
+  }, [movie?.id]);
 
   if (!movie) {
-    // Cargando: indicador. Ya cargado y sin títulos (p. ej. perfil infantil sin nada apto): se dice
+    // Sin títulos que mostrar, p. ej. un perfil infantil sin nada apto
     return (
       <div className="relative h-[70vh] bg-[#141414] flex items-center justify-center px-6 text-center">
         {loading ? (
@@ -60,7 +60,7 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
           <span className="text-green-400 font-semibold text-xs md:text-sm drop-shadow whitespace-nowrap">
             {movie.matchScore || t('content.defaultMatch')}
           </span>
-          <span className="border border-gray-400 text-gray-300 text-[11px] px-1 py-0.2 rounded">
+          <span className="border border-gray-400 text-gray-300 text-[11px] px-1 py-px rounded">
             {movie.ageRating || '+16'}
           </span>
           <span className="text-xs text-gray-300 whitespace-nowrap">

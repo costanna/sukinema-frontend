@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useI18n } from '../i18n';
 
-/** Campo de contraseña con el botón del ojo para verla u ocultarla. */
 export default function PasswordField({ id, label, value, onChange, autoComplete, placeholder, autoFocus = false }) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);

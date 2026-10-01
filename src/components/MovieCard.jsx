@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Play, Plus, Check, ThumbsUp, ChevronDown } from 'lucide-react';
 import TrailerImage from './TrailerImage';
 import { useI18n } from '../i18n';
@@ -15,13 +15,10 @@ export default function MovieCard({
   fluid = false
 }) {
   const { t } = useI18n();
-  const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div
       className={`relative ${fluid ? 'w-full' : 'flex-none w-[200px] sm:w-[240px] md:w-[280px]'} cursor-pointer group rounded-md overflow-hidden bg-[#181818] transition-all duration-300 transform hover:scale-105 hover:z-30 hover:shadow-2xl hover:shadow-black`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={() => onOpenDetails(movie)}
     >
       <div className="relative aspect-video w-full overflow-hidden bg-zinc-900">
@@ -102,16 +99,18 @@ export default function MovieCard({
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-gray-300">
           <span className="text-green-400 font-bold whitespace-nowrap">{movie.matchScore || t('content.defaultMatch')}</span>
-          <span className="border border-gray-500 text-gray-400 px-1 py-0.2 rounded text-[10px]">
+          <span className="border border-gray-500 text-gray-400 px-1 py-px rounded text-[10px]">
             {movie.ageRating || '+16'}
           </span>
-          <span className="text-gray-400">{movie.releaseYear || '2024'}</span>
+          {movie.releaseYear && <span className="text-gray-400">{movie.releaseYear}</span>}
           <span className="border border-gray-600 text-[9px] px-1 text-gray-300 rounded font-bold">HD</span>
         </div>
 
-        <div className="text-[11px] text-gray-400 truncate">
-          {movie.genres ? movie.genres.split(',').slice(0, 3).join(' • ') : t('card.defaultGenres')}
-        </div>
+        {movie.genres && (
+          <div className="text-[11px] text-gray-400 truncate">
+            {movie.genres.split(',').map(genre => genre.trim()).filter(Boolean).slice(0, 3).join(' • ')}
+          </div>
+        )}
       </div>
     </div>
   );
