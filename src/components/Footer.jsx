@@ -1,6 +1,5 @@
 import React from 'react';
 import { Heart } from 'lucide-react';
-import LanguageSwitcher from './LanguageSwitcher';
 import { useI18n } from '../i18n';
 
 const PORTFOLIO_URL = 'https://anna-dev-teal.vercel.app/';
@@ -72,7 +71,6 @@ export default function Footer({ onNavigate }) {
             <Heart size={13} className="text-red-600 fill-current" />
             <span>{t('footer.forCinephiles')}</span>
           </p>
-          <LanguageSwitcher />
         </div>
       </div>
     </footer>

@@ -10,8 +10,8 @@ const FALLBACK_LANGUAGE = 'en';
 
 export const LANGUAGES = [
   { code: 'ca', short: 'CA', name: 'Català' },
-  { code: 'en', short: 'EN', name: 'English' },
   { code: 'es', short: 'ES', name: 'Castellano' },
+  { code: 'en', short: 'EN', name: 'English' },
 ];
 
 const isSupported = (code) => Object.prototype.hasOwnProperty.call(DICTIONARIES, code);

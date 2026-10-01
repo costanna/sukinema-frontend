@@ -160,6 +160,11 @@ export default function Navbar({
           </span>
         </div>
 
+        {/* En móvil está dentro del menú: en la barra no cabe */}
+        <div className="hidden sm:block">
+          <LanguageSwitcher />
+        </div>
+
         {onOpenAddModal && (
           <button
             onClick={onOpenAddModal}
@@ -289,10 +294,6 @@ export default function Navbar({
                   </button>
                 )}
               </div>
-              <div className="px-3 pt-2 mt-2 border-t border-white/15 flex items-center justify-between">
-                <span className="text-[11px] text-gray-500">{t('common.language')}</span>
-                <LanguageSwitcher />
-              </div>
               {accountLabel && (
                 <p className="px-3 pt-2 mt-2 border-t border-white/15 text-[11px] text-gray-500 truncate" title={accountLabel}>
                   {accountLabel}
@@ -322,6 +323,10 @@ export default function Navbar({
               </li>
             ))}
           </ul>
+          <div className="sm:hidden px-4 py-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
+            <span>{t('common.language')}</span>
+            <LanguageSwitcher />
+          </div>
           <div className="px-4 py-3 border-t border-white/10 flex items-center space-x-1.5 text-xs text-gray-400">
             <span className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-amber-400'}`}></span>
             <span>{t(backendConnected ? 'nav.api' : 'nav.localCatalog')}</span>
