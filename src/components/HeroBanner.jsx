@@ -9,8 +9,12 @@ export default function HeroBanner({ movie, loading = false, paused = false, onP
   const [playPreview, setPlayPreview] = useState(false);
 
   // El vídeo de fondo arranca un momento después de mostrar la imagen, y de nuevo al cambiar de tráiler
-  useEffect(() => {
+  const [shownMovieId, setShownMovieId] = useState(movie?.id);
+  if (shownMovieId !== movie?.id) {
+    setShownMovieId(movie?.id);
     setPlayPreview(false);
+  }
+  useEffect(() => {
     const timer = setTimeout(() => setPlayPreview(true), 1800);
     return () => clearTimeout(timer);
   }, [movie?.id]);

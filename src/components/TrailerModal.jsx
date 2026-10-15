@@ -23,8 +23,15 @@ export default function TrailerModal({
   const [shareState, setShareState] = useState('idle');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => {
+  // La confirmación de borrar no se arrastra a otro tráiler ni a la siguiente vez que se abre
+  const viewKey = `${movie?.id}|${isOpen}`;
+  const [shownViewKey, setShownViewKey] = useState(viewKey);
+  if (shownViewKey !== viewKey) {
+    setShownViewKey(viewKey);
     setConfirmDelete(false);
+  }
+
+  useEffect(() => {
     // Al pasar a otro tráiler (p. ej. uno relacionado) el reproductor vuelve a quedar a la vista
     scrollRef.current?.scrollTo({ top: 0 });
   }, [movie?.id, isOpen]);

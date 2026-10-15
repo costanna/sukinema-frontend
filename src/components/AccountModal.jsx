@@ -40,16 +40,19 @@ export default function AccountModal({ account, isOpen, onClose, onChangePasswor
   const [generatingCode, setGeneratingCode] = useState(false);
 
   // Al abrir, los formularios empiezan limpios: no queda una contraseña ni un código a la vista
-  useEffect(() => {
-    if (!isOpen) return;
-    setCurrentPassword('');
-    setNewPassword('');
-    setPasswordError('');
-    setPasswordSuccess('');
-    setCodePassword('');
-    setCodeError('');
-    setRecoveryCode('');
-  }, [isOpen]);
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setCurrentPassword('');
+      setNewPassword('');
+      setPasswordError('');
+      setPasswordSuccess('');
+      setCodePassword('');
+      setCodeError('');
+      setRecoveryCode('');
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) return;
