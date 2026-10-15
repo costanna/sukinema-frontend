@@ -26,7 +26,8 @@ export default function Navbar({
   onManageProfiles,
   accountLabel,
   onOpenAccount,
-  onLogout
+  onLogout,
+  logoutLabel
 }) {
   const { t } = useI18n();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -290,7 +291,7 @@ export default function Navbar({
                     className="w-full flex items-center space-x-3 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 transition text-left"
                   >
                     <LogOut size={16} className="flex-shrink-0" />
-                    <span>{t('nav.logout')}</span>
+                    <span>{logoutLabel || t('nav.logout')}</span>
                   </button>
                 )}
               </div>

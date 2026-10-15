@@ -27,6 +27,7 @@ export default function ProfileSelector({
   onDelete,
   onClose,
   onLogout,
+  logoutLabel,
   accountLabel
 }) {
   const { t } = useI18n();
@@ -315,7 +316,7 @@ export default function ProfileSelector({
                 className="inline-flex items-center space-x-1.5 text-gray-400 hover:text-white transition"
               >
                 <LogOut size={14} />
-                <span>{t('profiles.logout')}</span>
+                <span>{logoutLabel || t('profiles.logout')}</span>
               </button>
             </p>
           )}

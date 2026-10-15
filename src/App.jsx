@@ -15,8 +15,9 @@ import StatsPanel from './components/StatsPanel';
 import ToastContainer, { showToast } from './components/ToastContainer';
 import ScrollToTop from './components/ScrollToTop';
 import Footer from './components/Footer';
-import { AuthAPI, MovieAPI, ProfileAPI, Session, FALLBACK_PROFILES } from './services/api';
+import { AuthAPI, MovieAPI, ProfileAPI, Session } from './services/api';
 import { FALLBACK_MOVIES, getFallbackCategories } from './data/fallbackData';
+import { isDemoChosen, chooseDemo, leaveDemo, hasSavedDemo, loadDemoDb, saveDemoDb, resetDemoData } from './services/demo';
 import { CATEGORIES } from './constants/catalog';
 import { extractYoutubeId } from './utils/youtube';
 import { MIN_SEARCH_LENGTH, searchWords, movieWords, matchesWords } from './utils/search';
@@ -75,8 +76,9 @@ export default function App() {
   const { t, lang } = useI18n();
 
   const [account, setAccount] = useState(null);
-  const [demoMode, setDemoMode] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(Session.hasToken());
+  // La demo elegida se recuerda al recargar: se entra directamente, sin llamar al servidor
+  const [demoMode, setDemoMode] = useState(isDemoChosen);
+  const [checkingSession, setCheckingSession] = useState(Session.hasToken() && !isDemoChosen());
   const [serverDown, setServerDown] = useState(false);
   // Código de recuperación recién emitido: se enseña una sola vez antes de seguir
   const [pendingRecoveryCode, setPendingRecoveryCode] = useState(null);
@@ -259,13 +261,21 @@ export default function App() {
     setSearchQuery('');
   };
 
+  // En la demo, todo lo que cambia se guarda en el navegador (ver services/demo.js).
+  // profilesLoaded evita guardar el estado vacío del primer render, antes de cargar la demo.
+  useEffect(() => {
+    if (demoMode && profilesLoaded) saveDemoDb({ movies: allMovies, profiles });
+  }, [demoMode, profilesLoaded, allMovies, profiles]);
+
   useEffect(() => {
     Session.onExpired(() => {
       clearSessionState();
       showToast(tRef.current('toast.sessionExpired'), 'warning');
     });
 
-    if (Session.hasToken()) {
+    if (isDemoChosen()) {
+      openDemo();
+    } else if (Session.hasToken()) {
       AuthAPI.me()
         .then(startSession)
         .catch((err) => {
@@ -309,18 +319,36 @@ export default function App() {
     showToast(t('toast.passwordChanged'), 'success');
   };
 
-  const handleEnterDemo = () => {
+  // Carga la demo con lo que se guardó en este navegador (o los datos iniciales)
+  const openDemo = () => {
+    const { movies, profiles: demoProfiles } = loadDemoDb();
     setDemoMode(true);
-    showLocalCatalog();
+    setCategories(getFallbackCategories(movies));
+    setAllMovies(movies);
+    setFeaturedMovie(movies.find(m => m.featured) || movies[0] || null);
+    setBackendConnected(false);
     setLoading(false);
-    setProfiles(FALLBACK_PROFILES);
-    restoreActiveProfile(FALLBACK_PROFILES);
+    setProfiles(demoProfiles);
+    restoreActiveProfile(demoProfiles);
     setProfilesLoaded(true);
+  };
+
+  const handleEnterDemo = () => {
+    chooseDemo();
+    openDemo();
     showToast(t('toast.demo'), 'info');
   };
 
+  const handleResetDemo = () => {
+    resetDemoData();
+    removeStored(ACTIVE_PROFILE_KEY);
+    handleEnterDemo();
+  };
+
+  // Salir de la demo no borra lo hecho en ella: al volver, sigue ahí
   const handleLogout = () => {
     const wasDemo = demoMode;
+    if (wasDemo) leaveDemo();
     clearSessionState();
     showToast(t(wasDemo ? 'toast.leftDemo' : 'toast.loggedOut'), 'info');
   };
@@ -601,6 +629,7 @@ export default function App() {
   };
 
   const accountLabel = demoMode ? t('app.demoMode') : account?.email;
+  const logoutLabel = demoMode ? t('app.leaveDemo') : undefined;
 
   // Pantallas previas al catálogo. La key mantiene vivo el ToastContainer al pasar de una a otra.
   let gate = null;
@@ -614,6 +643,7 @@ export default function App() {
         onRecover={handleRecover}
         serverDown={serverDown}
         onEnterDemo={handleEnterDemo}
+        onResetDemo={hasSavedDemo() ? handleResetDemo : undefined}
       />
     );
   } else if (pendingRecoveryCode) {
@@ -641,6 +671,7 @@ export default function App() {
       onDelete={handleDeleteProfile}
       onClose={activeProfile ? () => setIsProfileSelectorOpen(false) : undefined}
       onLogout={handleLogout}
+      logoutLabel={logoutLabel}
       accountLabel={accountLabel}
     />
   );
@@ -676,6 +707,7 @@ export default function App() {
         accountLabel={accountLabel}
         onOpenAccount={demoMode ? undefined : () => setIsAccountModalOpen(true)}
         onLogout={handleLogout}
+        logoutLabel={logoutLabel}
       />
 
       <main className="flex-grow">
