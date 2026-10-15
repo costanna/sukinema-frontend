@@ -1,15 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react';
 import { useI18n } from '../i18n';
-
-const TOAST_EVENT = 'sukinema-toast';
-let nextToastId = 0;
-
-export function showToast(message, type = 'success', duration = 3000) {
-  window.dispatchEvent(new CustomEvent(TOAST_EVENT, {
-    detail: { message, type, duration, id: ++nextToastId }
-  }));
-}
+import { TOAST_EVENT } from '../services/toast';
 
 const ICONS = {
   success: <CheckCircle size={18} className="text-green-400 flex-shrink-0" />,

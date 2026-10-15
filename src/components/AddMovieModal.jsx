@@ -33,9 +33,12 @@ export default function AddMovieModal({ isOpen, onClose, onMovieAdded, categorie
   const [error, setError] = useState('');
 
   // Si aún no se ha escrito nada, los valores de ejemplo siguen al idioma elegido
-  useEffect(() => {
+  const formLang = isOpen ? lang : null;
+  const [shownFormLang, setShownFormLang] = useState(formLang);
+  if (shownFormLang !== formLang) {
+    setShownFormLang(formLang);
     if (isOpen) setFormData(prev => (prev.title || prev.trailerUrl ? prev : emptyForm(lang)));
-  }, [isOpen, lang]);
+  }
   const previewId = extractYoutubeId(formData.trailerUrl);
 
   // El aviso de error está arriba del formulario: se sube para que se vea

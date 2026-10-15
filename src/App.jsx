@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Navbar from './components/Navbar';
 import AuthScreen from './components/AuthScreen';
 import RecoveryCodeNotice from './components/RecoveryCode';
@@ -12,7 +12,8 @@ import TrailerModal from './components/TrailerModal';
 import AddMovieModal from './components/AddMovieModal';
 import EditMovieModal from './components/EditMovieModal';
 import StatsPanel from './components/StatsPanel';
-import ToastContainer, { showToast } from './components/ToastContainer';
+import ToastContainer from './components/ToastContainer';
+import { showToast } from './services/toast';
 import ScrollToTop from './components/ScrollToTop';
 import Footer from './components/Footer';
 import { AuthAPI, MovieAPI, ProfileAPI, Session } from './services/api';
@@ -66,6 +67,14 @@ const removeStored = (...keys) => {
   }
 };
 
+// El perfil que estaba elegido antes de recargar, si sigue existiendo
+const findSavedProfile = (list) => {
+  const savedId = readStored(ACTIVE_PROFILE_KEY);
+  return list.find(p => String(p.id) === savedId) || null;
+};
+
+const featuredOf = (movies) => movies.find(m => m.featured) || movies[0] || null;
+
 // Perfil infantil: solo títulos sin restricción de edad o hasta +12
 const isKidSafe = (movie) => {
   const age = parseInt(String(movie.ageRating || '').replace(/\D/g, ''), 10);
@@ -76,7 +85,9 @@ export default function App() {
   const { t, lang } = useI18n();
 
   const [account, setAccount] = useState(null);
-  // La demo elegida se recuerda al recargar: se entra directamente, sin llamar al servidor
+  // La demo elegida se recuerda al recargar: se entra directamente, sin llamar al servidor,
+  // y el catálogo y los perfiles parten de lo que se guardó en este navegador
+  const [savedDemo] = useState(() => (isDemoChosen() ? loadDemoDb() : null));
   const [demoMode, setDemoMode] = useState(isDemoChosen);
   const [checkingSession, setCheckingSession] = useState(Session.hasToken() && !isDemoChosen());
   const [serverDown, setServerDown] = useState(false);
@@ -85,10 +96,10 @@ export default function App() {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   // El catálogo se guarda tal como llega del servidor; se traduce al pintarlo (ver `display`)
-  const [featuredMovie, setFeaturedMovie] = useState(null);
-  const [categories, setCategories] = useState({});
-  const [allMovies, setAllMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [featuredMovie, setFeaturedMovie] = useState(() => (savedDemo ? featuredOf(savedDemo.movies) : null));
+  const [categories, setCategories] = useState(() => (savedDemo ? getFallbackCategories(savedDemo.movies) : {}));
+  const [allMovies, setAllMovies] = useState(() => savedDemo?.movies ?? []);
+  const [loading, setLoading] = useState(!savedDemo);
   const [backendConnected, setBackendConnected] = useState(false);
 
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -101,9 +112,9 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [profiles, setProfiles] = useState([]);
-  const [profilesLoaded, setProfilesLoaded] = useState(false);
-  const [activeProfile, setActiveProfile] = useState(null);
+  const [profiles, setProfiles] = useState(() => savedDemo?.profiles ?? []);
+  const [profilesLoaded, setProfilesLoaded] = useState(!!savedDemo);
+  const [activeProfile, setActiveProfile] = useState(() => (savedDemo ? findSavedProfile(savedDemo.profiles) : null));
   const [isProfileSelectorOpen, setIsProfileSelectorOpen] = useState(false);
 
   // Mi Lista y likes de cada perfil: con cuenta se guardan en el servidor; en modo demo, en el navegador
@@ -112,24 +123,29 @@ export default function App() {
 
   // Los manejadores creados en el primer render (p. ej. el de sesión caducada) traducen con el idioma actual
   const tRef = useRef(t);
-  tRef.current = t;
+  useLayoutEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   const display = (movie) => localizeMovie(movie, lang);
 
+  // Al cambiar de perfil: en la demo, la lista sale del navegador; con cuenta, queda vacía
+  // mientras llega la respuesta del servidor, para no mostrar la del perfil anterior
+  const activeProfileId = activeProfile?.id;
+  const libraryKey = `${activeProfileId}|${demoMode}`;
+  const [shownLibraryKey, setShownLibraryKey] = useState(null);
+  if (shownLibraryKey !== libraryKey) {
+    setShownLibraryKey(libraryKey);
+    const inDemo = demoMode && activeProfileId != null;
+    setMyListIds((inDemo && readIdSet(myListKey(activeProfileId))) || new Set());
+    setLikedIds((inDemo && readIdSet(likesKey(activeProfileId))) || new Set());
+  }
+
   useEffect(() => {
-    if (!activeProfile) return;
-    const profileId = activeProfile.id;
+    if (activeProfileId == null || demoMode) return;
+    const profileId = activeProfileId;
 
-    if (demoMode) {
-      setMyListIds(readIdSet(myListKey(profileId)) || new Set());
-      setLikedIds(readIdSet(likesKey(profileId)) || new Set());
-      return;
-    }
-
-    // Vacías mientras llega la respuesta, para no mostrar la lista del perfil anterior
     let cancelled = false;
-    setMyListIds(new Set());
-    setLikedIds(new Set());
     (async () => {
       try {
         const library = await ProfileAPI.getLibrary(profileId);
@@ -157,7 +173,7 @@ export default function App() {
       }
     })();
     return () => { cancelled = true; };
-  }, [activeProfile?.id, demoMode]);
+  }, [activeProfileId, demoMode]);
 
   const withToggled = (idSet, id, present) => {
     const next = new Set(idSet);
@@ -217,8 +233,7 @@ export default function App() {
   };
 
   const restoreActiveProfile = (list) => {
-    const savedId = readStored(ACTIVE_PROFILE_KEY);
-    setActiveProfile(list.find(p => String(p.id) === savedId) || null);
+    setActiveProfile(findSavedProfile(list));
   };
 
   const loadProfiles = async () => {
@@ -261,6 +276,20 @@ export default function App() {
     setSearchQuery('');
   };
 
+  // Carga la demo con lo que se guardó en este navegador (o los datos iniciales)
+  const openDemo = () => {
+    const { movies, profiles: demoProfiles } = loadDemoDb();
+    setDemoMode(true);
+    setCategories(getFallbackCategories(movies));
+    setAllMovies(movies);
+    setFeaturedMovie(featuredOf(movies));
+    setBackendConnected(false);
+    setLoading(false);
+    setProfiles(demoProfiles);
+    restoreActiveProfile(demoProfiles);
+    setProfilesLoaded(true);
+  };
+
   // En la demo, todo lo que cambia se guarda en el navegador (ver services/demo.js).
   // profilesLoaded evita guardar el estado vacío del primer render, antes de cargar la demo.
   useEffect(() => {
@@ -273,9 +302,9 @@ export default function App() {
       showToast(tRef.current('toast.sessionExpired'), 'warning');
     });
 
-    if (isDemoChosen()) {
-      openDemo();
-    } else if (Session.hasToken()) {
+    // La demo ya viene cargada en el estado inicial; con cuenta, se recupera la sesión
+    const demoChosen = isDemoChosen();
+    if (!demoChosen && Session.hasToken()) {
       AuthAPI.me()
         .then(startSession)
         .catch((err) => {
@@ -283,7 +312,7 @@ export default function App() {
           if (err.status === 0) setServerDown(true);
         })
         .finally(() => setCheckingSession(false));
-    } else {
+    } else if (!demoChosen) {
       // Sin sesión guardada: se llama al servidor para irlo despertando mientras se escribe
       AuthAPI.ping().catch((err) => {
         if (err.status === 0) setServerDown(true);
@@ -291,6 +320,8 @@ export default function App() {
     }
 
     return () => Session.onExpired(null);
+    // Solo al montar: la sesión se recupera una vez y el aviso de caducidad se registra una vez
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogin = async (email, password) => {
@@ -317,20 +348,6 @@ export default function App() {
   const handleChangePassword = async (currentPassword, newPassword) => {
     setAccount(await AuthAPI.changePassword(currentPassword, newPassword));
     showToast(t('toast.passwordChanged'), 'success');
-  };
-
-  // Carga la demo con lo que se guardó en este navegador (o los datos iniciales)
-  const openDemo = () => {
-    const { movies, profiles: demoProfiles } = loadDemoDb();
-    setDemoMode(true);
-    setCategories(getFallbackCategories(movies));
-    setAllMovies(movies);
-    setFeaturedMovie(movies.find(m => m.featured) || movies[0] || null);
-    setBackendConnected(false);
-    setLoading(false);
-    setProfiles(demoProfiles);
-    restoreActiveProfile(demoProfiles);
-    setProfilesLoaded(true);
   };
 
   const handleEnterDemo = () => {

@@ -22,12 +22,13 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
   const choosesPassword = mode !== 'login';
 
   useEffect(() => {
-    if (!submitting) {
-      setIsSlow(false);
-      return;
-    }
+    if (!submitting) return;
     const timer = setTimeout(() => setIsSlow(true), SLOW_NOTICE_MS);
-    return () => clearTimeout(timer);
+    // Al terminar el envío el aviso desaparece, listo para el siguiente intento
+    return () => {
+      clearTimeout(timer);
+      setIsSlow(false);
+    };
   }, [submitting]);
 
   const switchMode = (nextMode) => {

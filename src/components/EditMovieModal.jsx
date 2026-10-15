@@ -12,8 +12,12 @@ export default function EditMovieModal({ movie, isOpen, onClose, onMovieUpdated,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (movie && isOpen) {
+  // Cada vez que se abre (o con otro tráiler) el formulario parte de los datos guardados
+  const editing = isOpen ? movie : null;
+  const [shownEditing, setShownEditing] = useState(null);
+  if (shownEditing !== editing) {
+    setShownEditing(editing);
+    if (editing) {
       setForm({
         title: movie.title || "",
         overview: movie.overview || "",
@@ -34,7 +38,7 @@ export default function EditMovieModal({ movie, isOpen, onClose, onMovieUpdated,
       setPreviewId(movie.youtubeId || extractYoutubeId(movie.trailerUrl));
       setError("");
     }
-  }, [movie, isOpen]);
+  }
 
   useEffect(() => {
     if (!isOpen) return;
