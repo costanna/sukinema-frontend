@@ -174,12 +174,23 @@ export const FALLBACK_MOVIES = [
   }
 ];
 
-export const getFallbackCategories = () => {
-  return {
-    "Tendencias de Hoy": FALLBACK_MOVIES.filter(m => m.trending),
-    "Ciencia Ficción y Fantasía": FALLBACK_MOVIES.filter(m => m.category.includes("Ciencia Ficción")),
-    "Anime y Animación": FALLBACK_MOVIES.filter(m => m.category.includes("Anime") || m.genres.includes("Animación")),
-    "Acción y Adrenalina": FALLBACK_MOVIES.filter(m => m.category.includes("Acción")),
-    "Aclamadas por la Crítica": FALLBACK_MOVIES.filter(m => m.category.includes("Aclamadas"))
+// Filas del catálogo local. Recibe la lista de tráilers para que la demo agrupe
+// también los que se han añadido o editado: los que no encajan en ninguna fila
+// fija van a una fila con el nombre de su categoría.
+export const getFallbackCategories = (movies = FALLBACK_MOVIES) => {
+  const has = (m, text) => (m.category || '').includes(text);
+  const rows = {
+    "Tendencias de Hoy": movies.filter(m => m.trending),
+    "Ciencia Ficción y Fantasía": movies.filter(m => has(m, "Ciencia Ficción")),
+    "Anime y Animación": movies.filter(m => has(m, "Anime") || (m.genres || '').includes("Animación")),
+    "Acción y Adrenalina": movies.filter(m => has(m, "Acción")),
+    "Aclamadas por la Crítica": movies.filter(m => has(m, "Aclamadas"))
   };
+  const shown = new Set(Object.values(rows).flat().map(m => m.id));
+  for (const movie of movies) {
+    if (shown.has(movie.id)) continue;
+    const row = movie.category || "Tendencias Ahora";
+    rows[row] = [...(rows[row] || []), movie];
+  }
+  return Object.fromEntries(Object.entries(rows).filter(([, list]) => list.length > 0));
 };

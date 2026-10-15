@@ -83,8 +83,10 @@ export default {
   'auth.remembered': 'L\'has recordada?',
   'auth.createAccount': 'Crea un compte',
   'auth.signIn': 'Inicia la sessió',
-  'auth.serverDown': 'El servidor no respon ara mateix. Pots explorar un catàleg d\'exemple; el que hi facis no es desa.',
-  'auth.enterDemo': 'Entra en mode demo',
+  'auth.serverDown': 'El servidor no respon ara mateix. Mentrestant pots provar la demo.',
+  'auth.enterDemo': 'Prova la demo',
+  'auth.demoHint': 'Sense compte: dades de prova desades només en aquest navegador.',
+  'auth.demoReset': 'Torna a començar la demo de zero',
 
   // Codi de recuperació
   'recovery.title': 'Desa el teu codi',
@@ -274,6 +276,7 @@ export default {
 
   // Vistes i avisos
   'app.demoMode': 'Mode demo',
+  'app.leaveDemo': 'Surt de la demo',
   'app.tab.trending': '🔥 Tendències en tràilers',
   'app.tab.anime': '⚡ Anime i animació',
   'app.tab.scifi': '🚀 Ciència-ficció i fantasia',
@@ -302,8 +305,8 @@ export default {
   'toast.accountCreated': 'Compte creat. Et donem la benvinguda, {name}!',
   'toast.passwordReset': 'Contrasenya restablerta',
   'toast.passwordChanged': 'Contrasenya canviada ✓',
-  'toast.demo': 'Mode demo: els canvis no es desen',
-  'toast.leftDemo': 'Has sortit del mode demo',
+  'toast.demo': 'Mode demo: els canvis es desen en aquest navegador',
+  'toast.leftDemo': 'Has sortit de la demo; el que hi has fet segueix desat',
   'toast.loggedOut': 'Sessió tancada',
   'toast.viewingAs': 'Mirant com a {name} {avatar}',
   'toast.profileCreated': 'Perfil "{name}" creat ✓',

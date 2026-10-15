@@ -83,8 +83,10 @@ export default {
   'auth.remembered': 'Remembered it?',
   'auth.createAccount': 'Create an account',
   'auth.signIn': 'Sign in',
-  'auth.serverDown': 'The server isn\'t responding right now. You can explore a sample catalog; nothing you do there is saved.',
-  'auth.enterDemo': 'Enter demo mode',
+  'auth.serverDown': 'The server isn\'t responding right now. Meanwhile you can try the demo.',
+  'auth.enterDemo': 'Try the demo',
+  'auth.demoHint': 'No account needed: sample data saved only in this browser.',
+  'auth.demoReset': 'Start the demo over',
 
   // Recovery code
   'recovery.title': 'Save your code',
@@ -274,6 +276,7 @@ export default {
 
   // Views and notices
   'app.demoMode': 'Demo mode',
+  'app.leaveDemo': 'Leave the demo',
   'app.tab.trending': '🔥 Trending Trailers',
   'app.tab.anime': '⚡ Anime & Animation',
   'app.tab.scifi': '🚀 Sci-Fi & Fantasy',
@@ -302,8 +305,8 @@ export default {
   'toast.accountCreated': 'Account created. Welcome, {name}!',
   'toast.passwordReset': 'Password reset',
   'toast.passwordChanged': 'Password changed ✓',
-  'toast.demo': 'Demo mode: changes are not saved',
-  'toast.leftDemo': 'You\'ve left demo mode',
+  'toast.demo': 'Demo mode: changes are saved in this browser',
+  'toast.leftDemo': 'You\'ve left the demo; what you did is still saved',
   'toast.loggedOut': 'Signed out',
   'toast.viewingAs': 'Watching as {name} {avatar}',
   'toast.profileCreated': 'Profile "{name}" created ✓',

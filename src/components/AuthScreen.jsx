@@ -8,7 +8,7 @@ const MIN_PASSWORD_LENGTH = 8;
 // Igual que LoadingScreen: tras unos segundos se explica que el servidor gratuito está despertando
 const SLOW_NOTICE_MS = 4000;
 
-export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown = false, onEnterDemo }) {
+export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown = false, onEnterDemo, onResetDemo }) {
   const { t } = useI18n();
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
@@ -203,12 +203,17 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
         </div>
       </form>
 
-      {serverDown && onEnterDemo && (
-        <div className="w-full max-w-sm mt-5 p-4 bg-amber-950/40 border border-amber-700/50 rounded-xl text-xs text-amber-100 space-y-3">
-          <p className="flex items-start space-x-2">
-            <WifiOff size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <span>{t('auth.serverDown')}</span>
-          </p>
+      {/* La demo se ofrece siempre (como en P2-Resto); si el servidor no responde, además se avisa */}
+      {onEnterDemo && (
+        <div className={`w-full max-w-sm mt-5 p-4 rounded-xl text-xs space-y-3 ${serverDown
+          ? 'bg-amber-950/40 border border-amber-700/50 text-amber-100'
+          : 'bg-white/5 border border-white/10 text-gray-300'}`}>
+          {serverDown && (
+            <p className="flex items-start space-x-2">
+              <WifiOff size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+              <span>{t('auth.serverDown')}</span>
+            </p>
+          )}
           <button
             type="button"
             onClick={onEnterDemo}
@@ -216,6 +221,16 @@ export default function AuthScreen({ onLogin, onRegister, onRecover, serverDown 
           >
             {t('auth.enterDemo')}
           </button>
+          <p className="text-center text-gray-400">{t('auth.demoHint')}</p>
+          {onResetDemo && (
+            <button
+              type="button"
+              onClick={onResetDemo}
+              className="w-full text-gray-400 hover:text-white underline underline-offset-2 transition"
+            >
+              {t('auth.demoReset')}
+            </button>
+          )}
         </div>
       )}
     </div>

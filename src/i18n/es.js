@@ -83,8 +83,10 @@ export default {
   'auth.remembered': '¿La has recordado?',
   'auth.createAccount': 'Crea una cuenta',
   'auth.signIn': 'Inicia sesión',
-  'auth.serverDown': 'El servidor no responde ahora mismo. Puedes explorar un catálogo de ejemplo; lo que hagas ahí no se guarda.',
-  'auth.enterDemo': 'Entrar en modo demo',
+  'auth.serverDown': 'El servidor no responde ahora mismo. Mientras tanto puedes probar la demo.',
+  'auth.enterDemo': 'Probar la demo',
+  'auth.demoHint': 'Sin cuenta: datos de prueba guardados solo en este navegador.',
+  'auth.demoReset': 'Empezar la demo de cero',
 
   // Código de recuperación
   'recovery.title': 'Guarda tu código',
@@ -274,6 +276,7 @@ export default {
 
   // Vistas y avisos
   'app.demoMode': 'Modo demo',
+  'app.leaveDemo': 'Salir de la demo',
   'app.tab.trending': '🔥 Tendencias en Tráilers',
   'app.tab.anime': '⚡ Anime & Animación',
   'app.tab.scifi': '🚀 Ciencia Ficción & Fantasía',
@@ -302,8 +305,8 @@ export default {
   'toast.accountCreated': 'Cuenta creada. ¡Te damos la bienvenida, {name}!',
   'toast.passwordReset': 'Contraseña restablecida',
   'toast.passwordChanged': 'Contraseña cambiada ✓',
-  'toast.demo': 'Modo demo: los cambios no se guardan',
-  'toast.leftDemo': 'Has salido del modo demo',
+  'toast.demo': 'Modo demo: los cambios se guardan en este navegador',
+  'toast.leftDemo': 'Has salido de la demo; lo que hiciste sigue guardado',
   'toast.loggedOut': 'Sesión cerrada',
   'toast.viewingAs': 'Viendo como {name} {avatar}',
   'toast.profileCreated': 'Perfil "{name}" creado ✓',
